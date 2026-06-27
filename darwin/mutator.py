@@ -1,40 +1,65 @@
+"""Darwin skill generator.
+
+Instead of mutating the base system prompt (which causes bloat), Darwin writes
+a focused Skill that the SRE agent loads situationally for matching incidents.
+
+Returns a skill dict ready to be saved and injected into future resolutions.
+"""
 import json
+import uuid
+from datetime import datetime, timezone
 from openai import OpenAI
 from config import DO_API_KEY, DO_BASE_URL, MUTATOR_MODEL
 
 _client = OpenAI(api_key=DO_API_KEY, base_url=DO_BASE_URL)
 
-MUTATOR_SYSTEM = """You are a prompt engineer specializing in AI SRE systems.
-Your job: improve a system prompt based on failure patterns from production incidents.
-Return ONLY the improved system prompt text — no explanations, no markdown, no JSON wrapper."""
+SKILL_WRITER_SYSTEM = """You are a senior SRE knowledge engineer.
+Your job: given a set of incidents an AI SRE agent failed to resolve correctly,
+write a concise, reusable Skill the agent can load to handle this class of incidents better.
 
-MUTATOR_USER = """The SRE agent's current system prompt is performing poorly on these incidents.
+A Skill is a short, focused piece of operational guidance — NOT a rewrite of the agent's
+entire personality. Think of it as a specialist reflex: "when you see X, do Y first."
 
-CURRENT SYSTEM PROMPT:
-{current_prompt}
+Return ONLY valid JSON with this exact structure:
+{
+  "name": "short skill name (5-10 words)",
+  "guidance": "2-4 sentences of precise, actionable guidance for this failure pattern",
+  "tags": ["failure_family_id", "category", ...up to 4 tags]
+}"""
 
-FAILURE PATTERNS (incidents the agent got wrong):
+SKILL_WRITER_USER = """The SRE agent failed on these incidents. Write a Skill to handle this pattern.
+
+FAILURE PATTERN SUMMARY:
 {failures}
 
-INSTRUCTIONS:
-- Identify what types of incidents the agent is failing on
-- Add specific guidance to handle those patterns
-- Keep all existing capabilities intact
-- Do NOT overfit to specific incident details — extract general principles
-- Keep the prompt under 800 words
+The skill should:
+- Address the SPECIFIC class of failure shown (not generic advice)
+- Describe what signal to look for and what action to take first
+- Be precise enough that an agent could apply it to a new unseen incident of the same class
+- Include the failure family ID in the tags (e.g. "CCF-1")
 
-Return the complete improved system prompt:"""
+Return ONLY the JSON skill object:"""
 
 
-def mutate_prompt(current_prompt: str, failed_incidents: list[dict]) -> tuple[str, str]:
+def generate_skill(failed_incidents: list[dict], generation: int) -> tuple[dict, str]:
+    """Generate a new Skill from a set of failed incidents.
+
+    Returns (skill_dict, description_for_genome) where skill_dict is ready to save.
+    """
     failure_summary = []
+    family_ids = set()
+    categories = set()
+
     for item in failed_incidents[:8]:
+        inc = item["incident"]
+        family_ids.add(inc.get("edge_case_family", "unknown"))
+        categories.add(inc.get("category", "general"))
         failure_summary.append({
-            "incident_title": item["incident"]["title"],
-            "incident_category": item["incident"]["category"],
-            "is_edge_case": item["incident"].get("is_edge_case", False),
+            "incident_title": inc["title"],
+            "incident_category": inc["category"],
+            "edge_case_family": inc.get("edge_case_family"),
             "agent_root_cause": item["resolution"].get("root_cause", ""),
-            "correct_root_cause": item["incident"]["ground_truth"]["root_cause"],
+            "correct_root_cause": inc["ground_truth"]["root_cause"],
             "score": item["scores"]["composite"],
             "judge_reasoning": item["scores"].get("reasoning", ""),
         })
@@ -42,23 +67,50 @@ def mutate_prompt(current_prompt: str, failed_incidents: list[dict]) -> tuple[st
     response = _client.chat.completions.create(
         model=MUTATOR_MODEL,
         messages=[
-            {"role": "system", "content": MUTATOR_SYSTEM},
-            {"role": "user", "content": MUTATOR_USER.format(
-                current_prompt=current_prompt,
+            {"role": "system", "content": SKILL_WRITER_SYSTEM},
+            {"role": "user", "content": SKILL_WRITER_USER.format(
                 failures=json.dumps(failure_summary, indent=2),
             )},
         ],
-        max_completion_tokens=1200,
+        max_completion_tokens=400,
     )
 
-    new_prompt = response.choices[0].message.content.strip()
-    diff = _build_diff(current_prompt, new_prompt)
-    return new_prompt, diff
+    raw = response.choices[0].message.content.strip()
+
+    # Strip markdown fences if present
+    if raw.startswith("```"):
+        lines = raw.splitlines()
+        raw = "\n".join(lines[1:-1] if lines[-1].strip() == "```" else lines[1:])
+
+    parsed = json.loads(raw)
+
+    # Merge any auto-detected tags with known families/categories
+    tags = list(set(parsed.get("tags", []) + list(family_ids) + list(categories)))
+    tags = [t for t in tags if t and t != "unknown"]
+
+    skill = {
+        "id": f"skill_{generation:03d}_{uuid.uuid4().hex[:6]}",
+        "name": parsed["name"],
+        "guidance": parsed["guidance"],
+        "tags": tags,
+        "created_by_generation": generation,
+        "use_count": 0,
+        "last_used": None,
+        "last_used_generation": generation,
+        "active": True,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+    description = (
+        f"Gen-{generation} skill '{skill['name']}' "
+        f"targeting {', '.join(sorted(family_ids))} | tags: {tags}"
+    )
+
+    return skill, description
 
 
-def _build_diff(old: str, new: str) -> str:
-    old_lines = set(old.splitlines())
-    new_lines = set(new.splitlines())
-    added = [f"+ {l}" for l in new_lines - old_lines if l.strip()]
-    removed = [f"- {l}" for l in old_lines - new_lines if l.strip()]
-    return "\n".join(removed[:5] + added[:5])
+# Keep a shim so any old callers referencing mutate_prompt don't crash at import
+def mutate_prompt(current_prompt: str, failed_incidents: list[dict]) -> tuple[str, str]:
+    """Deprecated shim — use generate_skill instead."""
+    skill, desc = generate_skill(failed_incidents, generation=0)
+    return current_prompt, f"[skill written] {desc}"

@@ -12,6 +12,7 @@ logs_col = _db["logs"]
 knowledge_articles = _db["knowledge_articles"]
 alerts_col = _db["alerts"]
 runs_col = _db["runs"]
+skills_col = _db["skills"]
 
 
 # ---------------------------------------------------------------------------
