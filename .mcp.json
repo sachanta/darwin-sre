@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "vijil": {
+      "command": "python",
+      "args": ["-m", "vijil_mcp"],
+      "env": {
+        "VIJIL_BEARER_TOKEN": "${VIJIL_BEARER_TOKEN}",
+        "VIJIL_URL": "https://console.vijil.ai"
+      }
+    }
+  }
+}
