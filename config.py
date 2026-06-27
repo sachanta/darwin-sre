@@ -13,7 +13,7 @@ MONGODB_DB = os.environ.get("MONGODB_DB", "darwin_sre")
 
 SRE_MODEL = os.environ.get("SRE_MODEL", "anthropic-claude-4.5-sonnet")
 MUTATOR_MODEL = os.environ.get("MUTATOR_MODEL", "anthropic-claude-haiku-4.5")
-JUDGE_MODEL = os.environ.get("JUDGE_MODEL", "gemini-2.5-flash")
+JUDGE_MODEL = os.environ.get("JUDGE_MODEL", "gemini-3.5-flash")
 
 DARWIN_TRIGGER_THRESHOLD = float(os.environ.get("DARWIN_TRIGGER_THRESHOLD", "0.60"))
 DARWIN_MAX_GENERATIONS = int(os.environ.get("DARWIN_MAX_GENERATIONS", "10"))

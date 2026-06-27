@@ -23,6 +23,14 @@ opentelemetry-sdk = ">=1.20.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.2.0"
+pytest-asyncio = "^0.23.0"
+mongomock = "^4.1.0"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+markers = [
+  "integration: marks tests that hit real external services (deselect with -m 'not integration')",
+]
 
 [build-system]
 requires = ["poetry-core"]
