@@ -1,0 +1,15 @@
+.env
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+node_modules/
+.DS_Store
+data/incidents_training.json
+data/incidents_production.json
+*.egg-info/
+dist/
+.pytest_cache/
+.vijil_agent_state.json
+.arize-tmp-traces/
