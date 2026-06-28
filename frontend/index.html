@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Darwin SRE Supervisor</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<!-- ── Header ─────────────────────────────────────────────────────────── -->
+<header>
+  <div class="header-left">
+    <span class="logo">🧬 Darwin SRE</span>
+    <span class="mode-badge" id="modeBadge">AUTONOMOUS MODE</span>
+  </div>
+  <div class="header-center">
+    <span class="run-label">Run:</span>
+    <select id="runSelect"></select>
+  </div>
+  <div class="header-right">
+    <span id="statusText" class="status-idle">Idle</span>
+    <button id="playBtn" class="btn-play" disabled>▶ Play</button>
+    <button id="resetBtn" class="btn-reset" disabled>↺ Reset</button>
+    <label class="speed-label">Speed
+      <select id="speedSelect">
+        <option value="800">0.5×</option>
+        <option value="400" selected>1×</option>
+        <option value="200">2×</option>
+        <option value="80">5×</option>
+      </select>
+    </label>
+  </div>
+</header>
+
+<!-- ── Main grid ──────────────────────────────────────────────────────── -->
+<main>
+
+  <!-- Score chart -->
+  <section class="panel chart-panel">
+    <div class="panel-title">
+      Composite Score — Resolution Quality
+      <span class="legend">
+        <span class="leg-dot gen0"></span>Gen 0
+        <span class="leg-dot gen1+"></span>Post-Evolution
+        <span class="leg-alert">⬥ Alert</span>
+        <span class="leg-recover">★ Recovery</span>
+      </span>
+    </div>
+    <div class="chart-wrap">
+      <canvas id="scoreChart"></canvas>
+    </div>
+    <div class="chart-stats" id="chartStats">
+      <span>Avg: —</span>
+      <span>Gen: 0</span>
+      <span>Incidents: 0</span>
+    </div>
+  </section>
+
+  <!-- Evolution panel -->
+  <section class="panel evo-panel">
+    <div class="panel-title">Darwin Evolutions <span id="evoCount" class="evo-count">0 / 8</span></div>
+    <div id="evoList" class="evo-list">
+      <div class="evo-empty">Waiting for degradation…</div>
+    </div>
+  </section>
+
+  <!-- Incident ticker -->
+  <section class="panel ticker-panel">
+    <div class="panel-title">
+      Incident Stream
+      <span id="tickerStats" class="ticker-stats">0 incidents · 0 alerts</span>
+    </div>
+    <div id="ticker" class="ticker"></div>
+  </section>
+
+</main>
+
+<!-- ── Evidence Drawer ────────────────────────────────────────────────── -->
+<div id="drawerOverlay" class="drawer-overlay hidden" onclick="closeDrawer()"></div>
+<aside id="drawer" class="drawer hidden">
+  <div class="drawer-header">
+    <span id="drawerTitle">Incident Detail</span>
+    <button class="drawer-close" onclick="closeDrawer()">✕</button>
+  </div>
+  <div id="drawerContent" class="drawer-content">
+    <div class="loading">Loading…</div>
+  </div>
+</aside>
+
+<!-- ── Sponsor footer ─────────────────────────────────────────────────── -->
+<footer>
+  <span class="footer-label">Powered by</span>
+  <span class="sponsor do">DigitalOcean</span>
+  <span class="sponsor goog">Google DeepMind</span>
+  <span class="sponsor mongo">MongoDB Atlas</span>
+  <span class="sponsor voyage">Voyage AI</span>
+  <span class="sponsor arize">Arize AX</span>
+  <span class="sponsor vijil">Vijil</span>
+  <span class="footer-right">AIEWF Hackathon 2026 · Recursive Self-Improvement</span>
+</footer>
+
+<script src="app.js"></script>
+</body>
+</html>
