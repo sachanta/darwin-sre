@@ -9,6 +9,8 @@ Fail-open: if Dome errors, the incident is allowed through (operational continui
 from __future__ import annotations
 import json
 from typing import Any
+from opentelemetry.trace import SpanKind
+from observability import get_tracer, span_ok
 
 _DOME_CONFIG = {
     "input": [
@@ -48,39 +50,47 @@ class GuardResult:
 
 
 def guard_incident_input(incident: dict) -> GuardResult:
-    """Check incident title + description for prompt injection / encoding attacks.
-
-    Returns GuardResult. If flagged, the incident should be skipped.
-    """
     text = f"{incident.get('title', '')} {incident.get('description', '')} {incident.get('logs', '')}"
-    try:
-        dome = _get_dome()
-        result = dome.guard_input(text)
-        return GuardResult(
-            allowed=not result.flagged,
-            flagged=result.flagged,
-            triggered=result.triggered_methods or [],
-            text=text,
-        )
-    except Exception as exc:
-        # Fail-open: log and allow
-        return GuardResult(allowed=True, flagged=False, triggered=[f"dome_error:{exc}"], text=text)
+    tracer = get_tracer()
+    with tracer.start_as_current_span("vijil.guard_input", kind=SpanKind.INTERNAL) as span:
+        span.set_attribute("openinference.span.kind", "GUARDRAIL")
+        span.set_attribute("incident.id", incident.get("id", ""))
+        try:
+            dome = _get_dome()
+            result = dome.guard_input(text)
+            guard = GuardResult(
+                allowed=not result.flagged,
+                flagged=result.flagged,
+                triggered=result.triggered_methods or [],
+                text=text,
+            )
+        except Exception as exc:
+            guard = GuardResult(allowed=True, flagged=False, triggered=[f"dome_error:{exc}"], text=text)
+        span.set_attribute("vijil.flagged", guard.flagged)
+        span.set_attribute("vijil.allowed", guard.allowed)
+        span.set_attribute("vijil.triggered", str(guard.triggered))
+        span_ok(span)
+        return guard
 
 
 def guard_resolution_output(resolution: dict) -> GuardResult:
-    """Check SRE agent resolution for secrets / sensitive data leakage.
-
-    Returns GuardResult with possibly-redacted text.
-    """
     text = json.dumps(resolution)
-    try:
-        dome = _get_dome()
-        result = dome.guard_output(text)
-        return GuardResult(
-            allowed=not result.flagged,
-            flagged=result.flagged,
-            triggered=result.triggered_methods or [],
-            text=result.response_string if result.flagged else text,
-        )
-    except Exception as exc:
-        return GuardResult(allowed=True, flagged=False, triggered=[f"dome_error:{exc}"], text=text)
+    tracer = get_tracer()
+    with tracer.start_as_current_span("vijil.guard_output", kind=SpanKind.INTERNAL) as span:
+        span.set_attribute("openinference.span.kind", "GUARDRAIL")
+        try:
+            dome = _get_dome()
+            result = dome.guard_output(text)
+            guard = GuardResult(
+                allowed=not result.flagged,
+                flagged=result.flagged,
+                triggered=result.triggered_methods or [],
+                text=result.response_string if result.flagged else text,
+            )
+        except Exception as exc:
+            guard = GuardResult(allowed=True, flagged=False, triggered=[f"dome_error:{exc}"], text=text)
+        span.set_attribute("vijil.flagged", guard.flagged)
+        span.set_attribute("vijil.allowed", guard.allowed)
+        span.set_attribute("vijil.triggered", str(guard.triggered))
+        span_ok(span)
+        return guard

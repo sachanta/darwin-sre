@@ -40,15 +40,14 @@ def _ax(*args: str) -> str:
 
 
 def setup_ax_profile() -> None:
-    """Create or update the ax CLI profile with our API key."""
+    """Create or update the ax CLI profile with our API key (silent, fail-safe)."""
     try:
         _ax("profiles", "create", "default", "--api-key", _API_KEY)
     except RuntimeError:
-        # Profile already exists — update it
         try:
             _ax("profiles", "update", "--api-key", _API_KEY)
         except RuntimeError:
-            pass  # Might already be correct
+            pass
 
 
 def create_annotation_configs() -> dict[str, str]:

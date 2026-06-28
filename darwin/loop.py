@@ -11,7 +11,7 @@ from darwin.arize_client import create_experiment
 from darwin.vijil_dome import guard_incident_input, guard_resolution_output
 from darwin.vijil_genome import ensure_agent, record_mutation
 from config import DARWIN_TRIGGER_THRESHOLD, DARWIN_MAX_GENERATIONS, DARWIN_WINDOW_SIZE
-from observability import get_tracer, span_ok
+from observability import get_tracer, span_ok  # get_tracer/span_ok used in _run_darwin
 
 
 class DarwinLoop:
@@ -32,24 +32,32 @@ class DarwinLoop:
         return sum(self.window) / len(self.window)
 
     def run(self, incidents: list[dict], register_vijil: bool = True) -> list[dict]:
-        tracer = get_tracer()
-
         if register_vijil:
             try:
                 ensure_agent(self.current_prompt)
             except Exception:
                 pass
 
-        with tracer.start_as_current_span("darwin.run") as run_span:
-            run_span.set_attribute("generation", self.generation)
-            run_span.set_attribute("total_incidents", len(incidents))
-            if self.run_id:
-                run_span.set_attribute("run_id", self.run_id)
+        # Each incident is its own root trace: darwin.incident > vijil.guard_input,
+        # sre.resolve (+ ChatCompletion), vijil.guard_output, darwin.judge
+        tracer = get_tracer()
+        for incident in incidents:
+            with tracer.start_as_current_span("darwin.incident") as inc_span:
+                inc_span.set_attribute("openinference.span.kind", "CHAIN")
+                inc_span.set_attribute("input.value", f"[{incident['id']}] {incident['title']}")
+                inc_span.set_attribute("incident.id", incident["id"])
+                inc_span.set_attribute("incident.title", incident["title"])
+                inc_span.set_attribute("incident.is_edge_case", incident.get("is_edge_case", False))
+                inc_span.set_attribute("incident.edge_case_family", incident.get("edge_case_family") or "")
+                inc_span.set_attribute("darwin.generation", self.generation)
+                if self.run_id:
+                    inc_span.set_attribute("darwin.run_id", self.run_id)
 
-            for incident in incidents:
                 # Vijil Dome: input guardrail
                 input_guard = guard_incident_input(incident)
                 if not input_guard.allowed:
+                    inc_span.set_attribute("incident.blocked", True)
+                    span_ok(inc_span)
                     self._emit("incident_blocked", {
                         "incident_id": incident["id"],
                         "reason": "vijil_dome_input",
@@ -57,7 +65,6 @@ class DarwinLoop:
                     })
                     continue
 
-                # Retrieve context: skills + KB articles
                 try:
                     from darwin.retrieval import retrieve_kbs
                     kb_articles = retrieve_kbs(incident)
@@ -84,9 +91,10 @@ class DarwinLoop:
                     system_prompt=self.current_prompt,
                     skills=active_skills,
                     kb_articles=kb_articles,
+                    run_id=self.run_id,
+                    generation=self.generation,
                 )
 
-                # Vijil Dome: output guardrail
                 output_guard = guard_resolution_output(resolution)
                 if output_guard.flagged:
                     self._emit("resolution_flagged", {
@@ -97,59 +105,62 @@ class DarwinLoop:
                 scores = score_resolution(incident, resolution)
 
                 self.window.append(scores["composite"])
-                save_resolution(
-                    incident, resolution, scores, self.generation,
-                    retrieved_kb_ids=[a["id"] for a in kb_articles],
+                rolling = self._rolling_avg()
+
+                inc_span.set_attribute("output.value", resolution.get("root_cause", "")[:300])
+                inc_span.set_attribute("score.composite", scores["composite"])
+                inc_span.set_attribute("score.rolling_avg", rolling)
+                inc_span.set_attribute("vijil.input_flagged", input_guard.flagged)
+                inc_span.set_attribute("vijil.output_flagged", output_guard.flagged)
+                span_ok(inc_span)
+
+            save_resolution(
+                incident, resolution, scores, self.generation,
+                retrieved_kb_ids=[a["id"] for a in kb_articles],
+                run_id=self.run_id,
+            )
+
+            result = {
+                "incident": incident,
+                "resolution": resolution,
+                "scores": scores,
+                "generation": self.generation,
+                "rolling_avg": rolling,
+                "skills_used": [s["id"] for s in active_skills],
+                "kb_used": [a["id"] for a in kb_articles],
+            }
+            self.all_results.append(result)
+
+            self._emit("incident_resolved", {
+                "incident_id": incident["id"],
+                "scores": scores,
+                "rolling_avg": rolling,
+                "generation": self.generation,
+                "skills_used": result["skills_used"],
+            })
+
+            if (
+                len(self.window) == DARWIN_WINDOW_SIZE
+                and rolling < DARWIN_TRIGGER_THRESHOLD
+                and self.generation < DARWIN_MAX_GENERATIONS
+            ):
+                failing_ids = [
+                    r["incident"]["id"] for r in self.all_results[-DARWIN_WINDOW_SIZE:]
+                ]
+                alert_id = save_alert(
+                    rolling_avg=rolling,
+                    window_scores=list(self.window),
+                    failing_incident_ids=failing_ids,
+                    generation=self.generation,
                     run_id=self.run_id,
                 )
-
-                result = {
-                    "incident": incident,
-                    "resolution": resolution,
-                    "scores": scores,
-                    "generation": self.generation,
-                    "rolling_avg": self._rolling_avg(),
-                    "skills_used": [s["id"] for s in active_skills],
-                    "kb_used": [a["id"] for a in kb_articles],
-                }
-                self.all_results.append(result)
-
-                self._emit("incident_resolved", {
-                    "incident_id": incident["id"],
-                    "scores": scores,
-                    "rolling_avg": self._rolling_avg(),
-                    "generation": self.generation,
-                    "skills_used": result["skills_used"],
+                self._emit("alert_raised", {
+                    "alert_id": alert_id,
+                    "rolling_avg": rolling,
+                    "window_scores": list(self.window),
+                    "failing_incident_ids": failing_ids,
                 })
-
-                rolling = self._rolling_avg()
-                if (
-                    len(self.window) == DARWIN_WINDOW_SIZE
-                    and rolling < DARWIN_TRIGGER_THRESHOLD
-                    and self.generation < DARWIN_MAX_GENERATIONS
-                ):
-                    # Raise alert before handing off to Darwin
-                    failing_ids = [
-                        r["incident"]["id"] for r in self.all_results[-DARWIN_WINDOW_SIZE:]
-                    ]
-                    alert_id = save_alert(
-                        rolling_avg=rolling,
-                        window_scores=list(self.window),
-                        failing_incident_ids=failing_ids,
-                        generation=self.generation,
-                        run_id=self.run_id,
-                    )
-                    self._emit("alert_raised", {
-                        "alert_id": alert_id,
-                        "rolling_avg": rolling,
-                        "window_scores": list(self.window),
-                        "failing_incident_ids": failing_ids,
-                    })
-                    self._run_darwin(result, alert_id=alert_id)
-
-            run_span.set_attribute("final_generation", self.generation)
-            run_span.set_attribute("final_rolling_avg", self._rolling_avg())
-            span_ok(run_span)
+                self._run_darwin(result, alert_id=alert_id)
 
         return self.all_results
 
@@ -181,10 +192,13 @@ class DarwinLoop:
                 pass
 
         with tracer.start_as_current_span("darwin.evolve") as span:
+            span.set_attribute("openinference.span.kind", "AGENT")
             span.set_attribute("generation", self.generation)
             span.set_attribute("score_before", score_before)
             span.set_attribute("num_failures", len(recent_failures))
             span.set_attribute("failure_families", str(failure_families))
+            if self.run_id:
+                span.set_attribute("darwin.run_id", self.run_id)
 
             # 1. Generate a new Skill
             new_skill, skill_description = generate_skill(recent_failures, self.generation)

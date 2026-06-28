@@ -101,9 +101,10 @@ def generate_skill(failed_incidents: list[dict], generation: int) -> tuple[dict,
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
 
+    safe_families = sorted(f for f in family_ids if f)
     description = (
         f"Gen-{generation} skill '{skill['name']}' "
-        f"targeting {', '.join(sorted(family_ids))} | tags: {tags}"
+        f"targeting {', '.join(safe_families) or 'general'} | tags: {tags}"
     )
 
     return skill, description

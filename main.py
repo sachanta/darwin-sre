@@ -11,13 +11,20 @@ Episode design (wave-based, guarantees 8 clean Darwin triggers):
 This structure ensures exactly one Darwin trigger per failure family,
 producing a clean 8-step staircase regardless of exact score values.
 """
+import argparse
 import json
+import os
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
+
+# Suppress gRPC fork-handler noise when subprocess.run() is called while gRPC threads are live
+os.environ.setdefault("GRPC_VERBOSITY", "NONE")
+
 from observability import setup_tracing
 from darwin.loop import DarwinLoop
 from darwin.storage import seed_incidents, seed_logs, create_run, finish_run
+from darwin.arize_client import setup_ax_profile, upload_golden_dataset
 from config import DARWIN_TRIGGER_THRESHOLD
 
 DATA_DIR = Path("data")
@@ -106,7 +113,15 @@ def on_event(event: dict) -> None:
 
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--smoke", action="store_true",
+                        help="Quick validation: 10 training + CCF-1 family only (~18 incidents)")
+    parser.add_argument("--n", type=int, default=None,
+                        help="Limit total incidents processed (for quick tracing tests)")
+    args = parser.parse_args()
+
     setup_tracing()
+    setup_ax_profile()
 
     # ── Load data ──────────────────────────────────────────────────────────
     for name in ("incidents_training.json", "incidents_production.json",
@@ -122,8 +137,20 @@ def main():
     normal_prod = [i for i in production if not i.get("is_edge_case")]
     corner_cases = [i for i in production if i.get("is_edge_case")]
 
-    print(f"Loaded: {len(training)} training  {len(normal_prod)} normal-prod  "
-          f"{len(corner_cases)} corner-cases  {len(logs)} logs")
+    if args.smoke:
+        training = training[:10]
+        ccf1 = [i for i in corner_cases if i.get("edge_case_family") == "CCF-1"]
+        corner_cases = ccf1
+        normal_prod = normal_prod[:8]
+        print(f"SMOKE MODE: {len(training)} training  {len(normal_prod)} normal-prod  "
+              f"{len(corner_cases)} corner-cases (CCF-1 only)")
+    else:
+        print(f"Loaded: {len(training)} training  {len(normal_prod)} normal-prod  "
+              f"{len(corner_cases)} corner-cases  {len(logs)} logs")
+
+    if args.n:
+        training = training[:args.n]
+        print(f"  ↳ --n {args.n}: capped training to {len(training)} incidents")
 
     # ── Seed MongoDB ───────────────────────────────────────────────────────
     print("Seeding MongoDB...")
@@ -131,13 +158,18 @@ def main():
     seed_logs(logs)
     print("  ✓ incidents + logs seeded")
 
+    # ── Upload golden dataset to Arize (idempotent — skips if exists) ────
+    upload_golden_dataset(training)
+
     # ── Create run record ─────────────────────────────────────────────────
-    run_id = f"run_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:6]}"
+    smoke_tag = "_smoke" if args.smoke else ""
+    run_id = f"run{smoke_tag}_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:6]}"
     create_run(run_id)
     print(f"  ✓ run_id: {run_id}\n")
 
     # ── Baseline: training set ─────────────────────────────────────────────
-    print("── BASELINE (50 training incidents — normal only) ───────────")
+    n_train = len(training)
+    print(f"── BASELINE ({n_train} training incidents) ───────────────────────")
     baseline_loop = DarwinLoop(on_event=on_event, run_id=run_id)
     baseline_results = baseline_loop.run(training, register_vijil=True)
     baseline_avg = (sum(r["scores"]["composite"] for r in baseline_results)

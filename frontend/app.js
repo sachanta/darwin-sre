@@ -2,7 +2,7 @@
 'use strict';
 
 // ── Constants ──────────────────────────────────────────────────────────────
-const THRESHOLD   = 0.60;
+const THRESHOLD   = 0.85;
 const GEN_COLORS  = ['#58a6ff','#3fb950','#bc8cff','#ffa657','#ff7b72','#56d364','#a5d6ff','#f2cc60','#ff9bce'];
 const API         = '';   // same origin
 
@@ -284,27 +284,41 @@ function initChart() {
         ctx.fillText(`threshold ${THRESHOLD}`, x.left + 4, yPos - 4);
         ctx.restore();
 
-        // Alert markers (red diamonds)
+        // Alert markers — red vertical dashed line + ⬥ label
         alertAnnots.forEach(a => {
           if (a.x > chartScores.length) return;
           const xPos = x.getPixelForValue(a.x);
           ctx.save();
+          ctx.strokeStyle = 'rgba(248,81,73,0.5)';
+          ctx.setLineDash([3, 3]);
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(xPos, y.top);
+          ctx.lineTo(xPos, y.bottom);
+          ctx.stroke();
           ctx.fillStyle = '#f85149';
-          ctx.font = '14px sans-serif';
+          ctx.font = '11px sans-serif';
           ctx.textAlign = 'center';
-          ctx.fillText('⬥', xPos, y.top + 14);
+          ctx.fillText('⬥ alert', xPos, y.top + 12);
           ctx.restore();
         });
 
-        // Recovery markers (green stars)
+        // Darwin evolve markers — green vertical solid line + ★ Gen N label
         evoAnnots.forEach(a => {
           if (a.x > chartScores.length) return;
           const xPos = x.getPixelForValue(a.x);
           ctx.save();
+          ctx.strokeStyle = 'rgba(63,185,80,0.7)';
+          ctx.setLineDash([]);
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.moveTo(xPos, y.top);
+          ctx.lineTo(xPos, y.bottom);
+          ctx.stroke();
           ctx.fillStyle = '#3fb950';
-          ctx.font = '14px sans-serif';
+          ctx.font = 'bold 11px sans-serif';
           ctx.textAlign = 'center';
-          ctx.fillText('★', xPos, y.top + 14);
+          ctx.fillText(`★ ${a.label}`, xPos, y.top + 12);
           ctx.restore();
         });
       }

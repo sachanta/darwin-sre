@@ -96,6 +96,8 @@ def resolve_incident(
     system_prompt: str = DEFAULT_SYSTEM_PROMPT,
     skills: list[dict] | None = None,
     kb_articles: list[dict] | None = None,
+    run_id: str | None = None,
+    generation: int = 0,
 ) -> dict:
     tracer = get_tracer()
 
@@ -103,6 +105,7 @@ def resolve_incident(
     user_message = _build_user_message(incident)
 
     with tracer.start_as_current_span("sre.resolve", kind=SpanKind.CLIENT) as span:
+        span.set_attribute("openinference.span.kind", "AGENT")
         span.set_attribute("incident.id", incident["id"])
         span.set_attribute("incident.title", incident["title"])
         span.set_attribute("incident.service", incident["service"])
@@ -114,6 +117,9 @@ def resolve_incident(
         span.set_attribute("context.num_kb_articles", len(kb_articles) if kb_articles else 0)
         span.set_attribute("context.skill_ids", str([s["id"] for s in skills] if skills else []))
         span.set_attribute("context.kb_ids", str([a["id"] for a in kb_articles] if kb_articles else []))
+        if run_id:
+            span.set_attribute("darwin.run_id", run_id)
+        span.set_attribute("darwin.generation", generation)
 
         try:
             response = _client.chat.completions.create(
