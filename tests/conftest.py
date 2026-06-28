@@ -10,6 +10,42 @@ DATA_DIR = Path(__file__).parent.parent / "data"
 # ---------------------------------------------------------------------------
 
 @pytest.fixture
+def sample_incident():
+    """Generic incident fixture used by RAG, degradation, and other unit tests."""
+    return {
+        "id": "inc_unit_001",
+        "title": "Redis cache miss rate spiking to 90%",
+        "description": "The checkout-service is experiencing cache miss rates of 90%+. Response times are degrading.",
+        "service": "checkout-service",
+        "environment": "production",
+        "category": "cache",
+        "is_edge_case": False,
+        "edge_case_family": None,
+        "log_id": "log_unit_001",
+        "kb_refs": [],
+        "metrics": {"cache_miss_rate": 0.90, "p99_latency_ms": 3200},
+        "ground_truth": {
+            "root_cause": "Redis keyspace eviction policy set to allkeys-lru; memory limit hit during traffic spike",
+            "severity": "P2",
+            "remediation_steps": ["Increase Redis maxmemory", "Switch eviction to volatile-lru", "Flush stale keys"],
+        },
+    }
+
+
+@pytest.fixture
+def sample_skill():
+    return {
+        "id": "skill_001",
+        "name": "Cache Eviction Diagnosis",
+        "guidance": "When cache miss rates spike, check eviction policy and memory limits before assuming network issues.",
+        "tags": ["cache", "redis", "CCF-3"],
+        "active": True,
+        "created_by_generation": 1,
+        "use_count": 2,
+    }
+
+
+@pytest.fixture
 def sample_normal_incident():
     return {
         "id": "train_001",
