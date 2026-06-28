@@ -13,9 +13,9 @@ WORKDIR /app
 # Copy dependency files first for layer caching
 COPY pyproject.toml poetry.lock ./
 
-# Export to requirements and install (faster than poetry install in container)
-RUN poetry export --without-hashes -f requirements.txt -o requirements.txt \
-    && pip install --no-cache-dir -r requirements.txt
+# Install deps into system Python (no virtualenv needed in a container)
+RUN poetry config virtualenvs.create false \
+    && poetry install --only main --no-interaction --no-ansi
 
 # Copy application code
 COPY . .
