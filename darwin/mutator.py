@@ -109,6 +109,83 @@ def generate_skill(failed_incidents: list[dict], generation: int) -> tuple[dict,
     return skill, description
 
 
+KB_WRITER_SYSTEM = """You are a senior SRE knowledge engineer writing a runbook for an AI agent knowledge base.
+Your job: given incidents that an AI SRE agent failed to handle, write a concise runbook article
+so the agent can recognize and resolve this class of incidents in the future.
+
+Return ONLY valid JSON:
+{
+  "title": "Runbook: <short descriptive title>",
+  "body": "3-6 sentences. Describe: (1) what this failure pattern looks like, (2) the most common root cause, (3) the first 2-3 diagnostic steps, (4) the resolution action.",
+  "tags": ["failure_family_id", "category", ...up to 4 tags],
+  "service": "the impacted service or 'general'"
+}"""
+
+KB_WRITER_USER = """Write a runbook for this failure pattern. The agent previously had no runbook for it.
+
+FAILURE PATTERN:
+{failures}
+
+Return ONLY the JSON runbook:"""
+
+
+def generate_kb_article(failed_incidents: list[dict], generation: int, skill_name: str) -> dict:
+    """Author a new KB runbook article from failed incidents.
+
+    Darwin writes this alongside the Skill so that (a) the skill is the quick
+    agent reflex, and (b) the KB article is the detailed runbook retrieved
+    by the RAG pipeline in future resolutions.
+    Returns a KB article dict (no embedding — retrieval.index_kb_article adds that).
+    """
+    failure_summary = []
+    family_ids = set()
+    categories = set()
+
+    for item in failed_incidents[:6]:
+        inc = item["incident"]
+        family_ids.add(inc.get("edge_case_family", "unknown"))
+        categories.add(inc.get("category", "general"))
+        failure_summary.append({
+            "title": inc["title"],
+            "category": inc["category"],
+            "edge_case_family": inc.get("edge_case_family"),
+            "correct_root_cause": inc["ground_truth"]["root_cause"],
+            "correct_remediation": inc["ground_truth"]["remediation_steps"],
+        })
+
+    response = _client.chat.completions.create(
+        model=MUTATOR_MODEL,
+        messages=[
+            {"role": "system", "content": KB_WRITER_SYSTEM},
+            {"role": "user", "content": KB_WRITER_USER.format(
+                failures=json.dumps(failure_summary, indent=2),
+            )},
+        ],
+        max_completion_tokens=500,
+    )
+
+    raw = response.choices[0].message.content.strip()
+    if raw.startswith("```"):
+        lines = raw.splitlines()
+        raw = "\n".join(lines[1:-1] if lines[-1].strip() == "```" else lines[1:])
+
+    parsed = json.loads(raw)
+    tags = list(set(parsed.get("tags", []) + list(family_ids) + list(categories)))
+    tags = [t for t in tags if t and t != "unknown"]
+
+    families_str = "_".join(sorted(family_ids))
+    return {
+        "id": f"kb_darwin_{generation:03d}_{uuid.uuid4().hex[:6]}",
+        "title": parsed["title"],
+        "body": parsed["body"],
+        "service": parsed.get("service", "general"),
+        "tags": tags,
+        "source": "darwin",
+        "created_by_generation": generation,
+        "related_skill": skill_name,
+    }
+
+
 # Keep a shim so any old callers referencing mutate_prompt don't crash at import
 def mutate_prompt(current_prompt: str, failed_incidents: list[dict]) -> tuple[str, str]:
     """Deprecated shim — use generate_skill instead."""

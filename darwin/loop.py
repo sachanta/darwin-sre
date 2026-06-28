@@ -1,9 +1,12 @@
 from collections import deque
 from agents.sre_agent import resolve_incident, DEFAULT_SYSTEM_PROMPT
 from agents.judge import score_resolution
-from darwin.mutator import generate_skill
+from darwin.mutator import generate_skill, generate_kb_article
 from darwin.skills import retrieve_skills, save_skill, increment_skill_use, retire_stale_skills
-from darwin.storage import save_resolution, save_generation
+from darwin.storage import (
+    save_resolution, save_generation,
+    save_alert, update_alert_status, save_kb_article,
+)
 from darwin.arize_client import create_experiment
 from darwin.vijil_dome import guard_incident_input, guard_resolution_output
 from darwin.vijil_genome import ensure_agent, record_mutation
@@ -125,7 +128,24 @@ class DarwinLoop:
                     and rolling < DARWIN_TRIGGER_THRESHOLD
                     and self.generation < DARWIN_MAX_GENERATIONS
                 ):
-                    self._run_darwin(result)
+                    # Raise alert before handing off to Darwin
+                    failing_ids = [
+                        r["incident"]["id"] for r in self.all_results[-DARWIN_WINDOW_SIZE:]
+                    ]
+                    alert_id = save_alert(
+                        rolling_avg=rolling,
+                        window_scores=list(self.window),
+                        failing_incident_ids=failing_ids,
+                        generation=self.generation,
+                        run_id=self.run_id,
+                    )
+                    self._emit("alert_raised", {
+                        "alert_id": alert_id,
+                        "rolling_avg": rolling,
+                        "window_scores": list(self.window),
+                        "failing_incident_ids": failing_ids,
+                    })
+                    self._run_darwin(result, alert_id=alert_id)
 
             run_span.set_attribute("final_generation", self.generation)
             run_span.set_attribute("final_rolling_avg", self._rolling_avg())
@@ -133,7 +153,7 @@ class DarwinLoop:
 
         return self.all_results
 
-    def _run_darwin(self, triggering_result: dict) -> None:
+    def _run_darwin(self, triggering_result: dict, alert_id: str | None = None) -> None:
         tracer = get_tracer()
         self.generation += 1
         score_before = self._rolling_avg()
@@ -142,7 +162,6 @@ class DarwinLoop:
             r for r in self.all_results[-20:]
             if r["scores"]["composite"] < DARWIN_TRIGGER_THRESHOLD
         ]
-
         failure_families = list({
             r["incident"].get("edge_case_family", "unknown") for r in recent_failures
         })
@@ -152,7 +171,14 @@ class DarwinLoop:
             "score_before": score_before,
             "num_failures": len(recent_failures),
             "failure_families": failure_families,
+            "alert_id": alert_id,
         })
+
+        if alert_id:
+            try:
+                update_alert_status(alert_id, "improving")
+            except Exception:
+                pass
 
         with tracer.start_as_current_span("darwin.evolve") as span:
             span.set_attribute("generation", self.generation)
@@ -160,7 +186,7 @@ class DarwinLoop:
             span.set_attribute("num_failures", len(recent_failures))
             span.set_attribute("failure_families", str(failure_families))
 
-            # 1. Generate a new Skill (not a prompt mutation)
+            # 1. Generate a new Skill
             new_skill, skill_description = generate_skill(recent_failures, self.generation)
             save_skill(new_skill)
 
@@ -168,7 +194,24 @@ class DarwinLoop:
             span.set_attribute("new_skill_name", new_skill["name"])
             span.set_attribute("new_skill_tags", str(new_skill["tags"]))
 
-            # 2. Re-evaluate on failed incidents WITH the new skill loaded
+            # 2. Write + index a new KB article so replay retrieval surfaces it
+            new_kb_article_id = None
+            try:
+                kb_article = generate_kb_article(recent_failures, self.generation, new_skill["name"])
+                from darwin.retrieval import index_kb_article
+                kb_article = index_kb_article(kb_article)   # embeds + upserts → adds embedding field
+                save_kb_article(kb_article)
+                new_kb_article_id = kb_article["id"]
+                span.set_attribute("new_kb_article_id", new_kb_article_id)
+                self._emit("kb_article_written", {
+                    "generation": self.generation,
+                    "kb_article_id": new_kb_article_id,
+                    "title": kb_article.get("title", ""),
+                })
+            except Exception as exc:
+                span.set_attribute("kb_write_error", str(exc))
+
+            # 3. Replay: re-run failed incidents — retrieval now surfaces the new KB
             re_scores = []
             for item in recent_failures[:5]:
                 try:
@@ -176,7 +219,6 @@ class DarwinLoop:
                     kb = retrieve_kbs(item["incident"])
                 except Exception:
                     kb = []
-                # Include the new skill in the replay
                 replay_skills = retrieve_skills(item["incident"]) + [new_skill]
                 r = resolve_incident(item["incident"], self.current_prompt,
                                      skills=replay_skills, kb_articles=kb)
@@ -186,25 +228,20 @@ class DarwinLoop:
             score_after = sum(re_scores) / len(re_scores) if re_scores else score_before
             improved = score_after >= score_before
 
-            # Base prompt stays frozen — only skills change
-            failure_patterns = failure_families
             failed_ids = [i["incident"]["id"] for i in recent_failures[:5]]
-
             save_generation(
                 generation_id=self.generation,
-                system_prompt=self.current_prompt,  # unchanged
+                system_prompt=self.current_prompt,
                 prompt_diff=f"[skill written] {skill_description}",
                 score_before=score_before,
                 score_after=score_after,
                 failed_incident_ids=failed_ids,
-                failure_patterns=failure_patterns,
-                new_kb_article_id=None,  # Phase D adds KB-write here
+                failure_patterns=failure_families,
+                new_kb_article_id=new_kb_article_id,
                 run_id=self.run_id,
             )
 
-            # Retire stale skills after each evolution
             retired = retire_stale_skills(self.generation)
-
             self.window.clear()
 
             span.set_attribute("score_after", score_after)
@@ -212,12 +249,25 @@ class DarwinLoop:
             span.set_attribute("skills_retired", str(retired))
             span_ok(span)
 
-        # Non-blocking: Arize experiment + Vijil genome
+        # Resolve alert if replay improved the score
+        if alert_id:
+            try:
+                if improved:
+                    update_alert_status(alert_id, "resolved")
+                    self._emit("alert_resolved", {
+                        "alert_id": alert_id,
+                        "generation": self.generation,
+                        "score_before": score_before,
+                        "score_after": score_after,
+                    })
+            except Exception:
+                pass
+
+        # Non-blocking: Arize experiment + Vijil genome snapshot
         try:
             create_experiment(self.generation, self.all_results)
         except Exception:
             pass
-
         try:
             record_mutation(self.generation, self.current_prompt, score_before, score_after)
         except Exception:
@@ -227,12 +277,14 @@ class DarwinLoop:
             "generation": self.generation,
             "score_before": score_before,
             "score_after": score_after,
+            "improved": improved,
             "new_skill": {
                 "id": new_skill["id"],
                 "name": new_skill["name"],
                 "guidance": new_skill["guidance"],
                 "tags": new_skill["tags"],
             },
+            "new_kb_article_id": new_kb_article_id,
             "skills_retired": retired,
-            "prompt_changed": False,  # base prompt stays frozen
+            "prompt_changed": False,
         })
