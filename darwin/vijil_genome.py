@@ -12,7 +12,16 @@ import shutil
 from pathlib import Path
 
 _STATE_FILE = Path(__file__).parent.parent / ".vijil_agent_state.json"
-_AGENT_NAME = "Darwin SRE"
+
+# Two-agent model in Vijil:
+#   SRE Agent (worker)   — the agent being improved; its genome lineage tracks
+#                          the accumulating skill library across generations.
+#   Darwin Agent (optim) — the optimizer; delegates to / improves the SRE Agent.
+# Genome snapshots are taken on the SRE AGENT (the thing whose state evolves).
+_SRE_AGENT_NAME = "SRE Agent (worker)"
+_DARWIN_AGENT_NAME = "Darwin Agent (optimizer)"
+_SRE_MODEL = "anthropic-claude-4.5-sonnet"
+_DARWIN_MODEL = "anthropic-claude-haiku-4.5"
 
 
 def _vijil(*args: str) -> dict | list | None:
@@ -41,31 +50,66 @@ def _save_state(state: dict) -> None:
 
 
 def ensure_agent(system_prompt: str) -> str | None:
-    """Create the Darwin SRE agent in Vijil if it doesn't exist yet.
+    """Ensure both Vijil agents exist: the SRE Agent (worker) and the Darwin
+    Agent (optimizer) that delegates to it.
 
-    Returns the Vijil agent_id, or None if creation fails.
+    The returned agent_id is the SRE AGENT — it is the one whose genome lineage
+    we snapshot, because its skill library is what evolves across generations.
     """
     state = _load_state()
     if "agent_id" in state:
         return state["agent_id"]
 
-    data = _vijil(
+    # 1. SRE Agent (worker) — the agent being improved
+    sre = _vijil(
         "agent", "create",
-        "--agent-name", _AGENT_NAME,
-        "--model-name", "anthropic-claude-4.5-sonnet",
+        "--agent-name", _SRE_AGENT_NAME,
+        "--model-name", _SRE_MODEL,
         "--agent-system-prompt", system_prompt,
         "--hub", "custom",
         "--protocol", "chat_completions",
         "--deployment", "local",
     )
-    if not data or "id" not in data:
+    if not sre or "id" not in sre:
         return None
+    sre_id = sre["id"]
 
-    agent_id = data["id"]
-    state["agent_id"] = agent_id
+    # 2. Darwin Agent (optimizer) — improves the SRE Agent
+    darwin = _vijil(
+        "agent", "create",
+        "--agent-name", _DARWIN_AGENT_NAME,
+        "--model-name", _DARWIN_MODEL,
+        "--agent-system-prompt",
+        "You are the Darwin optimizer. You detect degradation in the SRE Agent's "
+        "evaluation scores via Arize telemetry, analyze the failing incident family, "
+        "and author a targeted Skill to improve the SRE Agent. You do not resolve "
+        "incidents yourself; you improve the agent that does.",
+        "--hub", "custom",
+        "--protocol", "chat_completions",
+        "--deployment", "local",
+    )
+    darwin_id = darwin.get("id") if darwin else None
+
+    # 3. Link: Darwin delegates to (improves) the SRE Agent
+    if darwin_id:
+        _vijil(
+            "agent", "update", darwin_id,
+            "--delegated-agents",
+            json.dumps([{
+                "agent_id": sre_id,
+                "name": _SRE_AGENT_NAME,
+                "url": "https://inference.do-ai.run/v1/",
+            }]),
+        )
+
+    # The genome lineage is tracked on the SRE AGENT (the evolving worker)
+    state["agent_id"] = sre_id
+    state["sre_agent_id"] = sre_id
+    state["darwin_agent_id"] = darwin_id
     _save_state(state)
-    print(f"  ✅ Vijil agent registered: {agent_id} ('{_AGENT_NAME}')")
-    return agent_id
+    print(f"  ✅ Vijil SRE Agent (worker): {sre_id}")
+    print(f"  ✅ Vijil Darwin Agent (optimizer): {darwin_id} → delegates to SRE Agent")
+    return sre_id
 
 
 def extract_genome(agent_id: str) -> str | None:
