@@ -6,10 +6,11 @@ __pycache__/
 venv/
 node_modules/
 .DS_Store
-data/incidents_training.json
-data/incidents_production.json
-data/logs.json
-data/knowledge_base.json
+# data JSON files tracked in git (needed for DO deployment)
+# data/incidents_training.json
+# data/incidents_production.json
+# data/logs.json
+# data/knowledge_base.json
 *.egg-info/
 dist/
 .pytest_cache/

@@ -1,0 +1,327 @@
+[
+  {
+    "id": "kb_001",
+    "title": "Runbook: PostgreSQL connection pool exhaustion",
+    "body": "Connection pool exhaustion occurs when all available database connections are consumed, preventing new queries from executing. Check current connection count with SELECT count(*) FROM pg_stat_activity; and compare against max_connections setting. Identify long-running queries using SELECT pid, now() - pg_stat_activity.query_start AS duration, query FROM pg_stat_activity WHERE state = 'active' ORDER BY duration DESC;. Terminate blocking queries with SELECT pg_terminate_backend(pid);. Increase pool size in application configuration or scale connection pooler like PgBouncer. Monitor connection lifecycle and implement proper connection cleanup in application code.",
+    "service": "postgresql",
+    "tags": [
+      "database",
+      "connections",
+      "postgresql"
+    ],
+    "source": "seed",
+    "created_by_generation": null
+  },
+  {
+    "id": "kb_002",
+    "title": "Runbook: Redis OOM eviction during traffic spike",
+    "body": "Redis reaches memory limit and begins evicting keys based on configured eviction policy, causing cache misses and increased database load. Check memory usage with INFO memory and identify maxmemory setting in redis.conf. Review eviction statistics using INFO stats and look for evicted_keys counter. Analyze key distribution with redis-cli --bigkeys to find memory-hungry keys. Increase maxmemory limit if host has capacity, or add additional Redis instances for horizontal scaling. Implement appropriate eviction policy (allkeys-lru, volatile-lru) based on use case. Set TTLs on cache entries to prevent unbounded growth.",
+    "service": "redis",
+    "tags": [
+      "database",
+      "memory",
+      "redis"
+    ],
+    "source": "seed",
+    "created_by_generation": null
+  },
+  {
+    "id": "kb_003",
+    "title": "Runbook: High API response latency from slow database queries",
+    "body": "API endpoints experience elevated response times due to inefficient database queries without proper indexes. Enable slow query logging and review logs to identify queries exceeding threshold. Use EXPLAIN ANALYZE on slow queries to examine execution plans and identify missing indexes or sequential scans. Create indexes on frequently queried columns using CREATE INDEX CONCURRENTLY to avoid locking. Review query patterns for N+1 problems and implement eager loading or query batching. Monitor query performance metrics using pg_stat_statements extension. Consider implementing caching layer for frequently accessed data.",
+    "service": "api",
+    "tags": [
+      "performance",
+      "database",
+      "latency"
+    ],
+    "source": "seed",
+    "created_by_generation": null
+  },
+  {
+    "id": "kb_004",
+    "title": "Runbook: Network packet loss between application and database",
+    "body": "Intermittent connection failures and timeouts occur between application servers and database instances due to network packet loss. Check packet loss with ping and mtr commands to database endpoint. Review network interface statistics using ip -s link show for dropped packets and errors. Verify MTU settings match across network path using ping -M do -s 1472. Check for network congestion by examining bandwidth utilization on switches and routers. Inspect kernel network buffers with sysctl net.core.rmem_max and net.core.wmem_max. Engage network team to investigate switch ports and routing for hardware issues.",
+    "service": "general",
+    "tags": [
+      "network",
+      "connectivity",
+      "database"
+    ],
+    "source": "seed",
+    "created_by_generation": null
+  },
+  {
+    "id": "kb_005",
+    "title": "Runbook: Disk space exhaustion on application servers",
+    "body": "Application servers run out of disk space causing write failures and service degradation. Identify space usage with df -h and find large files using du -sh /* | sort -rh | head -20. Check for large log files in /var/log and implement log rotation with logrotate configuration. Look for core dumps and old deployment artifacts consuming space. Clean up Docker images and containers with docker system prune -a. Set up monitoring alerts for disk usage thresholds above 80%. Implement automated cleanup jobs for temporary files and old logs. Consider increasing disk capacity or mounting additional volumes for high-write directories.",
+    "service": "general",
+    "tags": [
+      "storage",
+      "disk",
+      "capacity"
+    ],
+    "source": "seed",
+    "created_by_generation": null
+  },
+  {
+    "id": "kb_006",
+    "title": "Runbook: Service container failing health checks after deployment",
+    "body": "Newly deployed containers fail health check probes and are repeatedly restarted by orchestrator. Examine container logs with kubectl logs or docker logs to identify startup errors. Verify health check endpoint responds correctly using curl from within the container namespace. Check readiness vs liveness probe configuration for appropriate timeout and initial delay values. Review application startup time and adjust initialDelaySeconds in probe configuration. Validate environment variables and configuration files are properly mounted and accessible. Ensure dependencies like databases are reachable before health checks begin. Rollback deployment if issue persists and investigate in staging environment.",
+    "service": "kubernetes",
+    "tags": [
+      "service",
+      "container",
+      "health-check"
+    ],
+    "source": "seed",
+    "created_by_generation": null
+  },
+  {
+    "id": "kb_007",
+    "title": "Runbook: MySQL replication lag increasing",
+    "body": "Replica database instances fall behind primary causing stale reads and replication delay. Check replication status with SHOW SLAVE STATUS and examine Seconds_Behind_Master metric. Identify long-running transactions on primary blocking replication using SHOW PROCESSLIST. Review binary log size and network bandwidth between primary and replicas. Check replica server load with top and iostat to identify resource constraints. Disable slow queries on replicas temporarily or add read replicas to distribute load. Verify replica has sufficient IOPS and consider upgrading storage tier. Tune replica configuration parameters like innodb_flush_log_at_trx_commit for better performance.",
+    "service": "mysql",
+    "tags": [
+      "database",
+      "replication",
+      "performance"
+    ],
+    "source": "seed",
+    "created_by_generation": null
+  },
+  {
+    "id": "kb_008",
+    "title": "Runbook: Load balancer returning 502 Bad Gateway errors",
+    "body": "Load balancer cannot establish connection to backend application servers resulting in 502 errors. Check backend server health in load balancer dashboard to identify unhealthy instances. Verify application servers are running and listening on correct ports using netstat -tlnp or ss -tlnp. Review application logs for errors preventing service from responding. Test direct connectivity to backend servers bypassing load balancer using curl. Examine security group rules and network ACLs for blocked traffic. Check for backend connection timeout settings that may be too aggressive. Verify target group health check configuration matches application requirements.",
+    "service": "load-balancer",
+    "tags": [
+      "network",
+      "service",
+      "load-balancer"
+    ],
+    "source": "seed",
+    "created_by_generation": null
+  },
+  {
+    "id": "kb_009",
+    "title": "Runbook: High CPU usage from inefficient application code",
+    "body": "Application servers experience sustained high CPU utilization degrading request throughput. Profile application using tools like pprof, perf, or New Relic APM to identify hot code paths. Review application logs for error loops or excessive logging statements. Check for CPU-intensive operations like regex matching or complex calculations in request path. Identify expensive serialization or JSON parsing operations. Use flame graphs to visualize CPU consumption across functions. Optimize identified bottlenecks through algorithmic improvements or caching. Scale horizontally by adding more instances if optimization is insufficient. Implement request throttling to prevent resource exhaustion.",
+    "service": "general",
+    "tags": [
+      "performance",
+      "cpu",
+      "application"
+    ],
+    "source": "seed",
+    "created_by_generation": null
+  },
+  {
+    "id": "kb_010",
+    "title": "Runbook: DNS resolution failures for external dependencies",
+    "body": "Applications cannot resolve DNS names for external APIs or services causing request failures. Test DNS resolution using dig or nslookup for affected domains. Check /etc/resolv.conf for correct nameserver configuration. Verify DNS server is reachable using ping or telnet to port 53. Review iptables or firewall rules for blocked DNS traffic. Examine CoreDNS or kube-dns logs in Kubernetes clusters for resolution errors. Check DNS query timeout settings in application configuration. Implement DNS caching at application layer to reduce resolution failures. Configure fallback DNS servers for redundancy.",
+    "service": "general",
+    "tags": [
+      "network",
+      "dns",
+      "connectivity"
+    ],
+    "source": "seed",
+    "created_by_generation": null
+  },
+  {
+    "id": "kb_011",
+    "title": "Runbook: MongoDB index missing causing collection scans",
+    "body": "Queries against MongoDB collections are slow due to full collection scans without proper indexes. Enable profiling with db.setProfilingLevel(2) and review slow queries in system.profile collection. Use db.collection.explain('executionStats') to analyze query execution plans. Identify COLLSCAN stages indicating missing indexes. Create appropriate indexes using db.collection.createIndex() with optimal key order. Monitor index usage with db.collection.aggregate([{$indexStats:{}}]) to identify unused indexes. Consider compound indexes for queries filtering on multiple fields. Build indexes in background on production systems using {background: true} option to avoid blocking writes.",
+    "service": "mongodb",
+    "tags": [
+      "database",
+      "performance",
+      "mongodb"
+    ],
+    "source": "seed",
+    "created_by_generation": null
+  },
+  {
+    "id": "kb_012",
+    "title": "Runbook: Network bandwidth saturation on instance",
+    "body": "Instance network bandwidth is exhausted causing dropped packets and slow data transfer. Monitor network throughput using iftop, nload, or cloud provider metrics dashboard. Identify bandwidth-heavy processes with nethogs or iptraf-ng. Check for data transfer operations like backups or large file uploads. Review application code for inefficient data serialization sending excessive payloads. Implement compression for large responses to reduce bandwidth consumption. Rate limit bandwidth-intensive operations or schedule during off-peak hours. Upgrade instance type to one with higher network capacity. Consider using Content Delivery Network (CDN) for static assets.",
+    "service": "general",
+    "tags": [
+      "network",
+      "bandwidth",
+      "performance"
+    ],
+    "source": "seed",
+    "created_by_generation": null
+  },
+  {
+    "id": "kb_013",
+    "title": "Runbook: EBS volume IOPS throttling",
+    "body": "Storage volume IOPS limits are exceeded causing I/O operations to be throttled and degraded performance. Check CloudWatch metrics for VolumeReadOps, VolumeWriteOps, and BurstBalance. Identify I/O intensive processes using iotop or iostat -x. Review volume type and provisioned IOPS allocation against workload requirements. Upgrade from gp2 to gp3 volumes for better baseline performance. Increase provisioned IOPS if using io1 or io2 volume types. Optimize application I/O patterns by batching writes or using write-back caching. Distribute I/O across multiple volumes if single volume IOPS is insufficient.",
+    "service": "aws",
+    "tags": [
+      "storage",
+      "performance",
+      "iops"
+    ],
+    "source": "seed",
+    "created_by_generation": null
+  },
+  {
+    "id": "kb_014",
+    "title": "Runbook: Incorrect environment variables in service configuration",
+    "body": "Service fails to start or behaves incorrectly due to missing or wrong environment variable values. Review service logs for configuration errors or null pointer exceptions related to missing variables. List current environment variables in container using kubectl exec or docker exec with env command. Compare against expected configuration in deployment manifests or infrastructure code. Check ConfigMaps and Secrets in Kubernetes for correct key-value pairs. Verify environment variable precedence and override behavior. Update deployment configuration with correct values and redeploy service. Implement validation checks at application startup to fail fast on missing required configuration.",
+    "service": "general",
+    "tags": [
+      "configuration",
+      "service",
+      "deployment"
+    ],
+    "source": "seed",
+    "created_by_generation": null
+  },
+  {
+    "id": "kb_015",
+    "title": "Runbook: Application memory leak causing OOM kills",
+    "body": "Application memory usage grows unbounded until process is killed by operating system OOM killer. Monitor memory metrics over time to identify growth pattern and leak rate. Review application logs and dmesg for OOM killer messages. Use heap profiling tools like heapdump, jemalloc, or Valgrind to identify leak sources. Check for unclosed resources like file handles, database connections, or event listeners. Look for circular references preventing garbage collection in managed languages. Implement memory limits in container runtime to trigger restarts before system OOM. Fix identified leaks in code and deploy patched version. Add memory growth alerts for early detection.",
+    "service": "general",
+    "tags": [
+      "performance",
+      "memory",
+      "application"
+    ],
+    "source": "seed",
+    "created_by_generation": null
+  },
+  {
+    "id": "kb_016",
+    "title": "Runbook: PostgreSQL autovacuum not keeping up with writes",
+    "body": "Database bloat increases as autovacuum cannot process dead tuples fast enough for write-heavy workload. Check bloat using SELECT schemaname, tablename, pg_size_pretty(pg_total_relation_size(schemaname||'.'||tablename)) FROM pg_tables ORDER BY pg_total_relation_size DESC. Review autovacuum statistics in pg_stat_user_tables for last_autovacuum timestamp. Examine autovacuum configuration parameters like autovacuum_max_workers and autovacuum_vacuum_cost_limit. Manually run VACUUM ANALYZE on heavily bloated tables during maintenance window. Tune autovacuum_naptime and autovacuum_vacuum_scale_factor for more aggressive vacuuming. Increase autovacuum workers and reduce cost delay. Consider implementing partitioning for very large tables.",
+    "service": "postgresql",
+    "tags": [
+      "database",
+      "performance",
+      "postgresql"
+    ],
+    "source": "seed",
+    "created_by_generation": null
+  },
+  {
+    "id": "kb_017",
+    "title": "Runbook: Service mesh proxy sidecar consuming excessive CPU",
+    "body": "Sidecar proxy containers use high CPU reducing resources available for application containers. Check CPU metrics for proxy containers using kubectl top pods or monitoring dashboard. Review proxy access logs for extremely high request rates or large payloads. Examine circuit breaker and retry configurations that may cause request amplification. Tune proxy resource limits to appropriate values for workload. Disable unnecessary features like verbose logging or tracing on production. Upgrade to latest proxy version with performance improvements. Consider connection pooling and keepalive settings to reduce connection overhead. Scale application pods to distribute load if proxy CPU is proportional to traffic.",
+    "service": "istio",
+    "tags": [
+      "service",
+      "performance",
+      "cpu"
+    ],
+    "source": "seed",
+    "created_by_generation": null
+  },
+  {
+    "id": "kb_018",
+    "title": "Runbook: NFS mount becomes unresponsive",
+    "body": "Network file system mount stops responding causing applications to hang on file operations. Check mount status with mount | grep nfs and df -h. Test NFS server accessibility using ping and showmount -e command. Review NFS server logs for errors or resource exhaustion. Examine client-side mount options in /etc/fstab for hard vs soft mount and timeout values. Force unmount using umount -f or umount -l if regular unmount fails. Remount filesystem after verifying NFS server health. Check network connectivity and firewall rules between client and NFS server. Consider using autofs for automatic mount recovery.",
+    "service": "storage",
+    "tags": [
+      "storage",
+      "network",
+      "filesystem"
+    ],
+    "source": "seed",
+    "created_by_generation": null
+  },
+  {
+    "id": "kb_019",
+    "title": "Runbook: ElasticSearch cluster yellow health status",
+    "body": "Cluster health degrades to yellow indicating unassigned replica shards reducing fault tolerance. Check cluster health with GET _cluster/health and identify affected indices. Review shard allocation with GET _cat/shards?v to find UNASSIGNED shards. Examine allocation explain API using GET _cluster/allocation/explain for reasons. Verify sufficient nodes exist for configured replica count. Check disk space on nodes using GET _cat/nodes?v&h=name,disk.avail. Adjust index.number_of_replicas setting if cluster size doesn't support current replicas. Enable shard allocation if it was manually disabled using PUT _cluster/settings. Resolve disk space issues or add nodes to cluster.",
+    "service": "elasticsearch",
+    "tags": [
+      "database",
+      "service",
+      "elasticsearch"
+    ],
+    "source": "seed",
+    "created_by_generation": null
+  },
+  {
+    "id": "kb_020",
+    "title": "Runbook: Kafka consumer lag increasing continuously",
+    "body": "Consumer group falls behind Kafka topic partition offsets unable to keep pace with message production. Check consumer lag using kafka-consumer-groups.sh --describe --group command. Identify slow consumers and review consumer logs for processing errors or timeouts. Examine consumer configuration for fetch.min.bytes and max.poll.records tuning. Increase number of consumer instances to parallelize partition consumption. Optimize message processing logic to reduce per-message latency. Check for network latency between consumers and Kafka brokers. Verify consumer has adequate CPU and memory resources. Consider increasing partition count to allow more parallelism if at consumer instance limit.",
+    "service": "kafka",
+    "tags": [
+      "service",
+      "performance",
+      "kafka"
+    ],
+    "source": "seed",
+    "created_by_generation": null
+  },
+  {
+    "id": "kb_021",
+    "title": "Runbook: SSL certificate expired causing HTTPS failures",
+    "body": "Web services return certificate errors preventing HTTPS connections due to expired SSL certificates. Verify certificate expiration using openssl s_client -connect host:443 -servername host | openssl x509 -noout -dates. Check certificate files on server and review expiration date with openssl x509 -in cert.pem -noout -enddate. Obtain renewed certificate from certificate authority or use automated tools like certbot for Let's Encrypt. Update certificate files and private key on web servers or load balancers. Reload or restart web server to pick up new certificates. Verify certificate chain is complete including intermediate certificates. Set up automated certificate renewal and expiration monitoring alerts.",
+    "service": "web-server",
+    "tags": [
+      "configuration",
+      "network",
+      "ssl"
+    ],
+    "source": "seed",
+    "created_by_generation": null
+  },
+  {
+    "id": "kb_022",
+    "title": "Runbook: RabbitMQ queue depth growing unbounded",
+    "body": "Message queue accumulates messages faster than consumers can process causing memory pressure. Check queue depth using rabbitmqctl list_queues name messages or management UI. Identify consumer count and consumption rate per queue. Review consumer logs for errors preventing message acknowledgment. Check consumer prefetch count settings that may throttle consumption. Increase number of consumer instances to handle message volume. Implement dead letter queues for poison messages causing repeated failures. Set queue length limits and TTL to prevent unbounded growth. Monitor consumer processing latency and optimize slow message handlers. Enable lazy queues to move messages to disk when memory constrained.",
+    "service": "rabbitmq",
+    "tags": [
+      "service",
+      "performance",
+      "queue"
+    ],
+    "source": "seed",
+    "created_by_generation": null
+  },
+  {
+    "id": "kb_023",
+    "title": "Runbook: Incorrect firewall rules blocking application traffic",
+    "body": "Network traffic between services is blocked due to misconfigured firewall or security group rules. Test connectivity using telnet, nc, or curl to verify port accessibility. Review iptables rules with iptables -L -n -v or use cloud provider security group console. Check both source and destination security groups for ingress and egress rules. Verify CIDR blocks and port ranges match application requirements. Examine network ACLs at subnet level for additional restrictions. Use packet capture with tcpdump to confirm packets reach destination. Add necessary rules allowing traffic on required ports and protocols. Document rule changes and review with security team for compliance.",
+    "service": "general",
+    "tags": [
+      "network",
+      "configuration",
+      "firewall"
+    ],
+    "source": "seed",
+    "created_by_generation": null
+  },
+  {
+    "id": "kb_024",
+    "title": "Runbook: Nginx worker process crash loop",
+    "body": "Nginx worker processes repeatedly crash and restart causing intermittent request failures. Examine Nginx error logs in /var/log/nginx/error.log for segmentation faults or errors. Check core dumps with gdb for crash stack traces if core dumps enabled. Review recent configuration changes in nginx.conf for syntax errors using nginx -t. Verify loaded modules and third-party plugins are compatible with Nginx version. Check system resource limits with ulimit -a and increase if necessary. Disable recently added modules to isolate problematic component. Update Nginx to latest stable version with bug fixes. Monitor worker_connections and worker_processes settings for appropriate values.",
+    "service": "nginx",
+    "tags": [
+      "service",
+      "configuration",
+      "web-server"
+    ],
+    "source": "seed",
+    "created_by_generation": null
+  },
+  {
+    "id": "kb_025",
+    "title": "Runbook: S3 bucket request rate limiting causing 503 errors",
+    "body": "High request rate to S3 bucket triggers throttling resulting in 503 SlowDown errors. Review S3 request metrics in CloudWatch for GetObject, PutObject, and ListBucket request rates. Implement exponential backoff and retry logic in application S3 client. Use prefix partitioning to distribute requests across multiple prefixes avoiding hot partitions. Enable S3 Transfer Acceleration for improved upload/download performance. Implement CloudFront CDN in front of S3 for frequently accessed objects. Cache S3 object metadata and content at application layer. Consider S3 request rate limits of 3500 PUT/DELETE and 5500 GET per prefix. Contact AWS support to request higher limits if legitimate use case requires it.",
+    "service": "aws",
+    "tags": [
+      "storage",
+      "performance",
+      "s3"
+    ],
+    "source": "seed",
+    "created_by_generation": null
+  }
+]

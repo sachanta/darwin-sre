@@ -1,0 +1,1667 @@
+[
+  {
+    "id": "prod_001",
+    "title": "Payment Service High Latency",
+    "description": "Payment processing experiencing significant slowdown with average response times exceeding 5 seconds. Customer complaints increasing about checkout timeouts. Error rates remain normal but transaction completion rate dropped by 40%.",
+    "service": "payment-service",
+    "environment": "production",
+    "category": "performance",
+    "is_edge_case": false,
+    "edge_case_family": null,
+    "metrics": {
+      "avg_response_time_ms": 5400,
+      "p95_latency_ms": 8200,
+      "error_rate_percent": 2.1,
+      "transaction_completion_rate": 60
+    },
+    "ground_truth": {
+      "root_cause": "Database connection pool exhaustion due to maximum pool size set to 10 connections while concurrent payment requests averaged 45",
+      "severity": "P1",
+      "remediation_steps": [
+        "Increase database connection pool size from 10 to 50",
+        "Add connection pool monitoring and alerting",
+        "Implement connection timeout and retry logic"
+      ]
+    },
+    "log_id": "log_prod_001",
+    "kb_refs": [
+      "kb_003",
+      "kb_007"
+    ]
+  },
+  {
+    "id": "prod_002",
+    "title": "User Authentication Service Unavailable",
+    "description": "Authentication service returning 503 errors for all login attempts. Users unable to access platform across web and mobile applications. Service health checks failing continuously.",
+    "service": "auth-service",
+    "environment": "production",
+    "category": "service",
+    "is_edge_case": false,
+    "edge_case_family": null,
+    "metrics": {
+      "error_rate_percent": 98.5,
+      "success_rate_percent": 1.5,
+      "response_time_ms": 120,
+      "pod_restart_count": 47
+    },
+    "ground_truth": {
+      "root_cause": "Redis session store crashed due to out-of-memory condition caused by missing TTL on session keys leading to unbounded growth",
+      "severity": "P1",
+      "remediation_steps": [
+        "Restart Redis instance and clear stale session data",
+        "Configure default TTL of 24 hours for all session keys",
+        "Increase Redis memory allocation from 2GB to 8GB",
+        "Implement Redis memory usage alerts at 80% threshold"
+      ]
+    },
+    "log_id": "log_prod_002",
+    "kb_refs": [
+      "kb_006",
+      "kb_008"
+    ]
+  },
+  {
+    "id": "prod_003",
+    "title": "CDN Cache Miss Rate Spike",
+    "description": "CDN cache hit rate dropped from 95% to 12% causing origin server load to increase 8x. Page load times degraded significantly for static assets. Origin bandwidth costs spiking.",
+    "service": "cdn-service",
+    "environment": "production",
+    "category": "network",
+    "is_edge_case": false,
+    "edge_case_family": null,
+    "metrics": {
+      "cache_hit_rate_percent": 12,
+      "origin_requests_per_sec": 14200,
+      "bandwidth_gbps": 45,
+      "avg_page_load_ms": 3800
+    },
+    "ground_truth": {
+      "root_cause": "CDN cache invalidation triggered by deployment script that incorrectly purged all cached content instead of only updated resources",
+      "severity": "P2",
+      "remediation_steps": [
+        "Fix deployment script to use selective cache invalidation with specific file patterns",
+        "Pre-warm CDN cache for critical static assets after deployments",
+        "Implement cache invalidation dry-run mode for validation"
+      ]
+    },
+    "log_id": "log_prod_003",
+    "kb_refs": [
+      "kb_004",
+      "kb_008"
+    ]
+  },
+  {
+    "id": "prod_004",
+    "title": "Database Replica Lag Increasing",
+    "description": "Read replica falling behind primary database by 45 minutes causing stale data to be served to users. Reports showing outdated information and users seeing inconsistent application state.",
+    "service": "order-database",
+    "environment": "production",
+    "category": "database",
+    "is_edge_case": false,
+    "edge_case_family": null,
+    "metrics": {
+      "replication_lag_seconds": 2700,
+      "replica_disk_io_percent": 99,
+      "primary_write_iops": 8500,
+      "replica_cpu_percent": 45
+    },
+    "ground_truth": {
+      "root_cause": "Read replica running on undersized disk with 150 IOPS provisioned while primary has 10000 IOPS causing replication bottleneck",
+      "severity": "P2",
+      "remediation_steps": [
+        "Upgrade replica disk from gp2 to gp3 with 10000 provisioned IOPS",
+        "Temporarily reduce write load on primary by batching non-critical updates",
+        "Add replication lag monitoring with alerts at 60 second threshold"
+      ]
+    },
+    "log_id": "log_prod_004",
+    "kb_refs": [
+      "kb_001",
+      "kb_002"
+    ]
+  },
+  {
+    "id": "prod_005",
+    "title": "API Gateway Rate Limiting Blocking Valid Traffic",
+    "description": "Legitimate user requests being blocked with 429 Too Many Requests errors. Customer support tickets increasing rapidly about access issues. Mobile app users particularly affected.",
+    "service": "api-gateway",
+    "environment": "production",
+    "category": "configuration",
+    "is_edge_case": false,
+    "edge_case_family": null,
+    "metrics": {
+      "rate_limit_blocks_per_min": 1850,
+      "legitimate_request_block_rate": 23,
+      "total_requests_per_sec": 3200,
+      "error_429_percent": 18
+    },
+    "ground_truth": {
+      "root_cause": "Rate limit configuration incorrectly applied per-server instead of distributed across cluster causing each of 8 gateway instances to enforce 100 req/min limit independently",
+      "severity": "P1",
+      "remediation_steps": [
+        "Reconfigure rate limiter to use shared Redis backend for distributed counting",
+        "Increase rate limit from 100 to 800 requests per minute per user",
+        "Implement rate limit bypass for authenticated premium users"
+      ]
+    },
+    "log_id": "log_prod_005",
+    "kb_refs": [
+      "kb_014",
+      "kb_021"
+    ]
+  },
+  {
+    "id": "prod_006",
+    "title": "Search Service Returning Empty Results",
+    "description": "Product search functionality returning zero results for all queries across the platform. Users unable to find products despite them existing in catalog. Search index appears online but non-functional.",
+    "service": "search-service",
+    "environment": "production",
+    "category": "service",
+    "is_edge_case": false,
+    "edge_case_family": null,
+    "metrics": {
+      "search_requests_per_sec": 450,
+      "zero_result_rate_percent": 100,
+      "elasticsearch_cluster_health": "yellow",
+      "index_document_count": 0
+    },
+    "ground_truth": {
+      "root_cause": "Elasticsearch index deleted by cleanup job that used wildcard pattern matching products-* which incorrectly matched production index products-v2-live",
+      "severity": "P1",
+      "remediation_steps": [
+        "Restore index from latest snapshot taken 2 hours ago",
+        "Update cleanup job to use explicit index exclusion list",
+        "Re-index products created in the last 2 hours",
+        "Implement index deletion approval workflow for production"
+      ]
+    },
+    "log_id": "log_prod_006",
+    "kb_refs": [
+      "kb_006",
+      "kb_008"
+    ]
+  },
+  {
+    "id": "prod_007",
+    "title": "File Upload Service Failures",
+    "description": "Users unable to upload images and documents with failures occurring at 85% rate. Error messages indicate storage issues. Existing files remain accessible but new uploads timing out after 30 seconds.",
+    "service": "upload-service",
+    "environment": "production",
+    "category": "storage",
+    "is_edge_case": false,
+    "edge_case_family": null,
+    "metrics": {
+      "upload_failure_rate_percent": 85,
+      "avg_upload_time_ms": 30000,
+      "storage_write_errors": 340,
+      "disk_usage_percent": 98
+    },
+    "ground_truth": {
+      "root_cause": "S3 bucket reached the account limit of 100 buckets and application configured to create new bucket per customer instead of using prefixes within shared bucket",
+      "severity": "P2",
+      "remediation_steps": [
+        "Request AWS service limit increase for S3 buckets from 100 to 500",
+        "Refactor upload service to use single bucket with customer ID prefixes",
+        "Migrate existing customer buckets to prefix-based structure",
+        "Implement bucket quota monitoring"
+      ]
+    },
+    "log_id": "log_prod_007",
+    "kb_refs": [
+      "kb_005",
+      "kb_013"
+    ]
+  },
+  {
+    "id": "prod_008",
+    "title": "Notification Service Memory Leak",
+    "description": "Notification service pods continuously restarting due to OOM kills every 15-20 minutes. Email and SMS notifications experiencing severe delays. Memory usage climbing from 500MB to 4GB before crash.",
+    "service": "notification-service",
+    "environment": "production",
+    "category": "performance",
+    "is_edge_case": false,
+    "edge_case_family": null,
+    "metrics": {
+      "memory_usage_mb": 4096,
+      "pod_restarts_per_hour": 12,
+      "notification_queue_depth": 28000,
+      "avg_delivery_delay_minutes": 45
+    },
+    "ground_truth": {
+      "root_cause": "Message queue consumer not acknowledging processed messages causing infinite retention in memory buffer and recent code change removed message.ack() call in success handler",
+      "severity": "P1",
+      "remediation_steps": [
+        "Rollback deployment to previous version that properly acknowledged messages",
+        "Add message acknowledgment after successful processing",
+        "Implement memory usage monitoring with alerts at 2GB threshold",
+        "Configure queue consumer to limit in-memory buffer to 1000 messages"
+      ]
+    },
+    "log_id": "log_prod_008",
+    "kb_refs": [
+      "kb_003",
+      "kb_007"
+    ]
+  },
+  {
+    "id": "prod_009",
+    "title": "Load Balancer Health Check Failures",
+    "description": "Application instances being removed from load balancer rotation despite being healthy. Traffic distributed unevenly with some instances receiving zero requests. Overall capacity reduced by 60%.",
+    "service": "web-application",
+    "environment": "production",
+    "category": "network",
+    "is_edge_case": false,
+    "edge_case_family": null,
+    "metrics": {
+      "healthy_instance_count": 8,
+      "total_instance_count": 20,
+      "health_check_failure_rate": 60,
+      "avg_instance_cpu_percent": 15
+    },
+    "ground_truth": {
+      "root_cause": "Health check endpoint timeout reduced from 10s to 2s in load balancer configuration while endpoint performs database connectivity check taking 3-5 seconds",
+      "severity": "P2",
+      "remediation_steps": [
+        "Increase health check timeout from 2 seconds to 10 seconds",
+        "Optimize health check endpoint to use cached connection status",
+        "Implement separate liveness and readiness probes",
+        "Add health check performance metrics dashboard"
+      ]
+    },
+    "log_id": "log_prod_009",
+    "kb_refs": [
+      "kb_004",
+      "kb_008"
+    ]
+  },
+  {
+    "id": "prod_010",
+    "title": "Database Deadlock Errors Increasing",
+    "description": "Transaction failures spiking with deadlock errors causing order processing failures. Error logs showing consistent deadlock patterns on inventory_items and order_line_items tables. Transaction retry logic exhausting attempts.",
+    "service": "inventory-service",
+    "environment": "production",
+    "category": "database",
+    "is_edge_case": false,
+    "edge_case_family": null,
+    "metrics": {
+      "deadlock_errors_per_min": 45,
+      "transaction_failure_rate_percent": 12,
+      "avg_transaction_time_ms": 850,
+      "concurrent_transactions": 230
+    },
+    "ground_truth": {
+      "root_cause": "New feature deployment introduced order processing transaction that locks tables in reverse order (orders then inventory) compared to existing inventory reservation flow (inventory then orders)",
+      "severity": "P1",
+      "remediation_steps": [
+        "Update new feature to acquire locks in consistent order matching existing flows",
+        "Add explicit lock ordering documentation to development guidelines",
+        "Implement transaction timeout of 5 seconds to prevent extended lock holding",
+        "Add database deadlock monitoring and alerting"
+      ]
+    },
+    "log_id": "log_prod_010",
+    "kb_refs": [
+      "kb_001",
+      "kb_002"
+    ]
+  },
+  {
+    "id": "prod_011",
+    "title": "Payment Gateway Timeout Surge",
+    "description": "Payment processing service experiencing 45% timeout rate during checkout flows. Customers unable to complete purchases with generic error messages. Transaction completion time increased from 1.2s to 28s average.",
+    "service": "payment-gateway",
+    "environment": "production",
+    "category": "performance",
+    "is_edge_case": false,
+    "edge_case_family": null,
+    "metrics": {
+      "timeout_rate": 0.45,
+      "avg_response_time_ms": 28000,
+      "failed_transactions": 3420,
+      "error_rate": 0.41
+    },
+    "ground_truth": {
+      "root_cause": "Third-party payment processor API experiencing degraded performance due to their database maintenance window, causing cascading timeouts in our payment gateway service",
+      "severity": "P1",
+      "remediation_steps": [
+        "Enable circuit breaker for payment processor API calls",
+        "Increase timeout threshold to 45 seconds temporarily",
+        "Activate backup payment processor routing",
+        "Contact payment vendor support to confirm maintenance completion time"
+      ]
+    },
+    "log_id": "log_prod_011",
+    "kb_refs": [
+      "kb_003",
+      "kb_007"
+    ]
+  },
+  {
+    "id": "prod_012",
+    "title": "Search Index Stale Data",
+    "description": "Product search returning outdated results with items showing incorrect pricing and availability. Newly added products from the last 6 hours not appearing in search results. Search latency normal but result accuracy degraded.",
+    "service": "search-indexer",
+    "environment": "production",
+    "category": "service",
+    "is_edge_case": false,
+    "edge_case_family": null,
+    "metrics": {
+      "index_lag_minutes": 360,
+      "stale_results_percentage": 0.23,
+      "indexing_rate": 0,
+      "queue_depth": 145000
+    },
+    "ground_truth": {
+      "root_cause": "Elasticsearch index write operations failing silently due to cluster disk space reaching 95% threshold, triggering read-only mode on all indices",
+      "severity": "P2",
+      "remediation_steps": [
+        "Delete old indices and logs to free up disk space",
+        "Remove read-only block from affected indices",
+        "Trigger manual reindex of last 6 hours of product updates",
+        "Implement automated disk cleanup policy for indices older than 30 days"
+      ]
+    },
+    "log_id": "log_prod_012",
+    "kb_refs": [
+      "kb_006",
+      "kb_008"
+    ]
+  },
+  {
+    "id": "prod_013",
+    "title": "User Session Loss Spike",
+    "description": "Widespread user logout events occurring randomly across the platform. Users reporting forced logouts every 5-10 minutes requiring re-authentication. Session management service logs showing unexpected session invalidations.",
+    "service": "session-manager",
+    "environment": "production",
+    "category": "database",
+    "is_edge_case": false,
+    "edge_case_family": null,
+    "metrics": {
+      "forced_logout_rate": 0.67,
+      "session_invalidation_count": 89000,
+      "redis_connection_errors": 1240,
+      "avg_session_duration_minutes": 8
+    },
+    "ground_truth": {
+      "root_cause": "Redis cluster node failure causing session data loss, with remaining nodes unable to handle full load resulting in eviction of active session keys due to memory pressure",
+      "severity": "P1",
+      "remediation_steps": [
+        "Restart failed Redis cluster node and verify cluster health",
+        "Increase Redis maxmemory limit to prevent premature evictions",
+        "Adjust eviction policy from allkeys-lru to noeviction for session keyspace",
+        "Scale Redis cluster by adding two additional nodes for redundancy"
+      ]
+    },
+    "log_id": "log_prod_013",
+    "kb_refs": [
+      "kb_001",
+      "kb_002"
+    ]
+  },
+  {
+    "id": "prod_014",
+    "title": "Email Notification Delivery Delays",
+    "description": "Transactional emails experiencing 2-3 hour delivery delays. Order confirmation and password reset emails queuing up instead of sending immediately. Email service showing normal processing but delivery metrics degraded.",
+    "service": "notification-service",
+    "environment": "production",
+    "category": "service",
+    "is_edge_case": false,
+    "edge_case_family": null,
+    "metrics": {
+      "queue_depth": 234000,
+      "avg_delivery_delay_minutes": 165,
+      "send_rate_per_second": 12,
+      "throttle_errors": 8900
+    },
+    "ground_truth": {
+      "root_cause": "AWS SES sending rate limit reached due to reputation score decrease from recent spam complaints, automatically throttling outbound email to 50 emails per second from normal 200/sec",
+      "severity": "P2",
+      "remediation_steps": [
+        "Request temporary sending limit increase from AWS Support",
+        "Implement email priority queue to process critical emails first",
+        "Review and remove flagged email addresses from distribution lists",
+        "Add secondary email provider as fallback for overflow traffic"
+      ]
+    },
+    "log_id": "log_prod_014",
+    "kb_refs": [
+      "kb_006",
+      "kb_008"
+    ]
+  },
+  {
+    "id": "prod_015",
+    "title": "File Upload Failures",
+    "description": "Users unable to upload images and documents larger than 5MB. Upload progress bars reaching 100% but returning 500 errors. Small file uploads working normally without issues.",
+    "service": "media-upload-service",
+    "environment": "production",
+    "category": "storage",
+    "is_edge_case": false,
+    "edge_case_family": null,
+    "metrics": {
+      "large_file_failure_rate": 0.94,
+      "avg_upload_size_mb": 8.3,
+      "storage_write_errors": 2340,
+      "timeout_count": 1876
+    },
+    "ground_truth": {
+      "root_cause": "S3 bucket policy misconfiguration deployed 3 hours ago blocking multipart upload operations, only allowing single PUT operations which fail for files over 5MB",
+      "severity": "P2",
+      "remediation_steps": [
+        "Rollback S3 bucket policy to previous version",
+        "Verify multipart upload permissions in bucket policy",
+        "Test large file uploads in staging before policy changes",
+        "Add automated tests for multipart upload functionality in deployment pipeline"
+      ]
+    },
+    "log_id": "log_prod_015",
+    "kb_refs": [
+      "kb_005",
+      "kb_013"
+    ]
+  },
+  {
+    "id": "prod_016",
+    "title": "Inventory Service High CPU Usage",
+    "description": "Inventory microservice pods hitting 100% CPU utilization causing response time degradation. Product availability checks timing out for 35% of requests. Service auto-scaling triggered but new pods also immediately saturated.",
+    "service": "inventory-service",
+    "environment": "production",
+    "category": "performance",
+    "is_edge_case": false,
+    "edge_case_family": null,
+    "metrics": {
+      "cpu_utilization": 0.99,
+      "avg_response_time_ms": 4500,
+      "timeout_rate": 0.35,
+      "pod_count": 45
+    },
+    "ground_truth": {
+      "root_cause": "N+1 query problem introduced in latest deployment causing inventory checks to execute 50+ individual database queries per request instead of batched query",
+      "severity": "P1",
+      "remediation_steps": [
+        "Rollback inventory-service to previous stable version",
+        "Add database query batching for inventory lookups",
+        "Implement query result caching with 30-second TTL",
+        "Add database query count monitoring alerts to catch similar issues"
+      ]
+    },
+    "log_id": "log_prod_016",
+    "kb_refs": [
+      "kb_003",
+      "kb_007"
+    ]
+  },
+  {
+    "id": "prod_017",
+    "title": "API Gateway Certificate Expiration",
+    "description": "External API calls failing with SSL certificate validation errors. Partner integrations reporting connection failures. Internal services behind the gateway unaffected but external traffic dropping to zero.",
+    "service": "api-gateway",
+    "environment": "production",
+    "category": "configuration",
+    "is_edge_case": false,
+    "edge_case_family": null,
+    "metrics": {
+      "ssl_errors": 15600,
+      "external_traffic_drop": 0.98,
+      "certificate_validity_days": -2,
+      "failed_handshakes": 14200
+    },
+    "ground_truth": {
+      "root_cause": "SSL certificate expired 2 days ago due to failed automated renewal process caused by DNS validation records being accidentally deleted during infrastructure cleanup",
+      "severity": "P1",
+      "remediation_steps": [
+        "Manually issue new SSL certificate through certificate authority",
+        "Restore DNS validation records required for certificate renewal",
+        "Deploy new certificate to API gateway load balancers",
+        "Configure certificate expiration monitoring alerts 30 days in advance",
+        "Enable automated certificate renewal with ACM"
+      ]
+    },
+    "log_id": "log_prod_017",
+    "kb_refs": [
+      "kb_014",
+      "kb_021"
+    ]
+  },
+  {
+    "id": "prod_018",
+    "title": "Analytics Pipeline Data Loss",
+    "description": "Real-time analytics dashboard showing zero events for the past 2 hours. Event tracking endpoints returning 200 OK but data not appearing in data warehouse. Event ingestion service logs showing successful processing.",
+    "service": "analytics-ingestion",
+    "environment": "production",
+    "category": "service",
+    "is_edge_case": false,
+    "edge_case_family": null,
+    "metrics": {
+      "events_received": 2400000,
+      "events_stored": 0,
+      "kafka_lag": 2100000,
+      "consumer_offset_progress": 0
+    },
+    "ground_truth": {
+      "root_cause": "Kafka consumer group offset reset to beginning due to coordinator rebalance, but serialization format mismatch preventing message deserialization causing silent failures in event processing",
+      "severity": "P2",
+      "remediation_steps": [
+        "Fix message deserialization code to handle schema version mismatch",
+        "Reset Kafka consumer offset to 2 hours ago timestamp",
+        "Reprocess missed events from Kafka retention buffer",
+        "Add dead letter queue for failed message processing",
+        "Implement schema validation monitoring"
+      ]
+    },
+    "log_id": "log_prod_018",
+    "kb_refs": [
+      "kb_006",
+      "kb_008"
+    ]
+  },
+  {
+    "id": "prod_019",
+    "title": "Database Connection Pool Exhaustion",
+    "description": "Customer profile service returning 503 errors during peak traffic hours. Database queries timing out despite database CPU being at 40%. Application logs showing connection pool exhausted warnings repeatedly.",
+    "service": "customer-profile-service",
+    "environment": "production",
+    "category": "database",
+    "is_edge_case": false,
+    "edge_case_family": null,
+    "metrics": {
+      "active_connections": 100,
+      "max_pool_size": 100,
+      "connection_wait_time_ms": 30000,
+      "error_rate": 0.52,
+      "db_cpu_utilization": 0.41
+    },
+    "ground_truth": {
+      "root_cause": "Connection pool size set to 100 insufficient for current traffic volume of 500 req/sec, combined with slow query holding connections open average 2.5 seconds instead of expected 200ms",
+      "severity": "P1",
+      "remediation_steps": [
+        "Increase connection pool max size to 300 connections",
+        "Identify and optimize slow query using EXPLAIN ANALYZE",
+        "Add database index on customer_id and last_login columns",
+        "Implement connection pool monitoring with alerting on 80% utilization",
+        "Configure connection timeout to 5 seconds to prevent indefinite waits"
+      ]
+    },
+    "log_id": "log_prod_019",
+    "kb_refs": [
+      "kb_001",
+      "kb_002"
+    ]
+  },
+  {
+    "id": "prod_020",
+    "title": "CDN Cache Poisoning Incident",
+    "description": "Users receiving cached error pages instead of actual content across multiple regions. Homepage and product pages showing 404 errors for authenticated users. CloudFront serving stale error responses despite origin returning 200 OK.",
+    "service": "content-delivery",
+    "environment": "production",
+    "category": "network",
+    "is_edge_case": false,
+    "edge_case_family": null,
+    "metrics": {
+      "cache_hit_ratio": 0.89,
+      "error_page_serves": 125000,
+      "origin_error_rate": 0.02,
+      "user_impact": 0.43
+    },
+    "ground_truth": {
+      "root_cause": "CDN cache poisoning occurred when origin experienced brief 5-minute outage earlier today, causing error pages to be cached with incorrect cache-control headers (max-age=3600) instead of no-cache",
+      "severity": "P1",
+      "remediation_steps": [
+        "Invalidate all cached objects across CDN edge locations",
+        "Update origin error page responses to include cache-control: no-cache, no-store",
+        "Configure CDN to not cache 4xx and 5xx responses",
+        "Monitor cache invalidation completion across all edge locations",
+        "Implement CDN cache validation checks in deployment pipeline"
+      ]
+    },
+    "log_id": "log_prod_020",
+    "kb_refs": [
+      "kb_004",
+      "kb_008"
+    ]
+  },
+  {
+    "id": "prod_021",
+    "title": "Payment Gateway Timeout Errors",
+    "description": "Payment processing service experiencing widespread timeout errors. Transaction completion rate dropped from 98% to 12%. Customer complaints surging about failed checkout attempts.",
+    "service": "payment-gateway",
+    "environment": "production",
+    "category": "service",
+    "is_edge_case": false,
+    "edge_case_family": null,
+    "metrics": {
+      "error_rate": 0.88,
+      "response_time_p95": 30000,
+      "success_rate": 0.12,
+      "requests_per_minute": 450
+    },
+    "ground_truth": {
+      "root_cause": "Third-party payment processor API changed their rate limiting policy from 1000 to 500 requests per minute without notification, causing request queuing and timeouts",
+      "severity": "P1",
+      "remediation_steps": [
+        "Implement request throttling to stay within new 500 req/min limit",
+        "Add circuit breaker pattern to fail fast when rate limits exceeded",
+        "Contact payment processor to negotiate higher rate limits",
+        "Implement request batching where possible to reduce API calls"
+      ]
+    },
+    "log_id": "log_prod_021",
+    "kb_refs": [
+      "kb_006",
+      "kb_008"
+    ]
+  },
+  {
+    "id": "prod_022",
+    "title": "User Profile Service High Latency",
+    "description": "User profile queries taking 10-15 seconds to complete during peak hours. Dashboard shows database connection pool exhaustion. Users reporting slow page loads on account settings.",
+    "service": "user-profile-service",
+    "environment": "production",
+    "category": "database",
+    "is_edge_case": false,
+    "edge_case_family": null,
+    "metrics": {
+      "database_connection_pool_usage": 100,
+      "query_latency_p95": 12500,
+      "active_connections": 50,
+      "max_connections": 50
+    },
+    "ground_truth": {
+      "root_cause": "Database connection pool size set to 50 connections is insufficient for current traffic volume of 5000 concurrent users, causing connection wait times",
+      "severity": "P2",
+      "remediation_steps": [
+        "Increase database connection pool size from 50 to 150",
+        "Implement connection timeout monitoring and alerting",
+        "Review and optimize long-running queries holding connections",
+        "Consider implementing read replicas to distribute load"
+      ]
+    },
+    "log_id": "log_prod_022",
+    "kb_refs": [
+      "kb_001",
+      "kb_002"
+    ]
+  },
+  {
+    "id": "prod_023",
+    "title": "Image CDN 503 Service Unavailable",
+    "description": "CDN returning 503 errors for product images across the platform. Origin server shows normal operation but CDN edge nodes failing. Approximately 40% of image requests failing.",
+    "service": "image-cdn",
+    "environment": "production",
+    "category": "network",
+    "is_edge_case": false,
+    "edge_case_family": null,
+    "metrics": {
+      "cdn_error_rate": 0.42,
+      "origin_health": 100,
+      "cache_hit_ratio": 0.15,
+      "bandwidth_gbps": 2.3
+    },
+    "ground_truth": {
+      "root_cause": "CDN SSL certificate expired at 02:00 UTC causing HTTPS validation failures at edge nodes, forcing requests back to origin which overwhelmed connection limits",
+      "severity": "P1",
+      "remediation_steps": [
+        "Immediately renew and deploy updated SSL certificate to CDN",
+        "Clear CDN cache to remove stale certificate references",
+        "Implement automated certificate renewal 30 days before expiration",
+        "Add monitoring alerts for certificates expiring within 14 days"
+      ]
+    },
+    "log_id": "log_prod_023",
+    "kb_refs": [
+      "kb_004",
+      "kb_008"
+    ]
+  },
+  {
+    "id": "prod_024",
+    "title": "Search Service Memory Leak",
+    "description": "Search microservice containers restarting every 2-3 hours due to OOM errors. Memory usage grows linearly from 2GB to 8GB limit. Search functionality intermittently unavailable during restarts.",
+    "service": "search-service",
+    "environment": "production",
+    "category": "performance",
+    "is_edge_case": false,
+    "edge_case_family": null,
+    "metrics": {
+      "memory_usage_gb": 7.8,
+      "memory_limit_gb": 8,
+      "restart_count": 8,
+      "uptime_hours": 2.5
+    },
+    "ground_truth": {
+      "root_cause": "Elasticsearch client library version 7.14.2 has known memory leak when using scroll API without proper cleanup, accumulating unclosed search contexts",
+      "severity": "P2",
+      "remediation_steps": [
+        "Upgrade Elasticsearch client library to version 7.17.8 with leak fix",
+        "Add explicit scroll context cleanup in finally blocks",
+        "Implement search context timeout of 5 minutes",
+        "Increase memory limit to 12GB as temporary mitigation"
+      ]
+    },
+    "log_id": "log_prod_024",
+    "kb_refs": [
+      "kb_003",
+      "kb_007"
+    ]
+  },
+  {
+    "id": "prod_025",
+    "title": "Notification Queue Backlog Growing",
+    "description": "Email notification queue depth increased from 1000 to 850000 messages over 6 hours. Processing rate dropped significantly. Users not receiving order confirmation emails.",
+    "service": "notification-worker",
+    "environment": "production",
+    "category": "service",
+    "is_edge_case": false,
+    "edge_case_family": null,
+    "metrics": {
+      "queue_depth": 850000,
+      "processing_rate_per_min": 50,
+      "worker_count": 3,
+      "error_rate": 0.02
+    },
+    "ground_truth": {
+      "root_cause": "Worker pool auto-scaling policy incorrectly configured with maximum of 3 workers instead of 30, unable to handle increased email volume from flash sale campaign",
+      "severity": "P2",
+      "remediation_steps": [
+        "Update worker auto-scaling configuration to allow up to 30 instances",
+        "Immediately scale workers to 25 to process backlog",
+        "Prioritize order confirmation emails over marketing notifications",
+        "Implement queue depth alerting at 10000 messages threshold"
+      ]
+    },
+    "log_id": "log_prod_025",
+    "kb_refs": [
+      "kb_006",
+      "kb_008"
+    ]
+  },
+  {
+    "id": "prod_026",
+    "title": "API Gateway 502 Bad Gateway Errors",
+    "description": "API gateway returning 502 errors for 25% of requests to backend services. Backend health checks passing but gateway unable to establish connections. Mobile app users unable to login.",
+    "service": "api-gateway",
+    "environment": "production",
+    "category": "network",
+    "is_edge_case": false,
+    "edge_case_family": null,
+    "metrics": {
+      "error_rate": 0.25,
+      "backend_health": 100,
+      "connection_failures": 1250,
+      "requests_per_second": 5000
+    },
+    "ground_truth": {
+      "root_cause": "API gateway security group rules modified during routine audit, removing ingress rule for backend service CIDR range 10.0.0.0/16 preventing backend communication",
+      "severity": "P1",
+      "remediation_steps": [
+        "Restore security group ingress rule for 10.0.0.0/16 on port 8080",
+        "Verify connectivity between gateway and all backend services",
+        "Implement infrastructure change approval process for security groups",
+        "Add automated tests for critical network connectivity paths"
+      ]
+    },
+    "log_id": "log_prod_026",
+    "kb_refs": [
+      "kb_004",
+      "kb_008"
+    ]
+  },
+  {
+    "id": "prod_027",
+    "title": "Database Replication Lag Increasing",
+    "description": "Read replica showing replication lag of 45 minutes behind primary database. Reports and analytics queries returning stale data. Replica apply thread consuming high CPU.",
+    "service": "postgres-read-replica",
+    "environment": "production",
+    "category": "database",
+    "is_edge_case": false,
+    "edge_case_family": null,
+    "metrics": {
+      "replication_lag_seconds": 2700,
+      "replica_cpu_usage": 95,
+      "wal_segments_behind": 180,
+      "apply_rate_mb_per_sec": 0.8
+    },
+    "ground_truth": {
+      "root_cause": "Primary database bulk data migration job generated 12 million row updates without batching, overwhelming replica apply process on undersized replica instance (db.m5.large vs primary db.m5.2xlarge)",
+      "severity": "P2",
+      "remediation_steps": [
+        "Pause bulk migration job to allow replica to catch up",
+        "Upgrade read replica instance to db.m5.2xlarge to match primary",
+        "Modify migration script to batch updates in 10000 row chunks",
+        "Implement replication lag alerting at 300 seconds threshold"
+      ]
+    },
+    "log_id": "log_prod_027",
+    "kb_refs": [
+      "kb_001",
+      "kb_002"
+    ]
+  },
+  {
+    "id": "prod_028",
+    "title": "Object Storage Upload Failures",
+    "description": "File upload service failing with 403 Forbidden errors when writing to object storage. Successful uploads dropped from 100% to 0% at 14:30. User-uploaded content not persisting.",
+    "service": "file-upload-service",
+    "environment": "production",
+    "category": "storage",
+    "is_edge_case": false,
+    "edge_case_family": null,
+    "metrics": {
+      "upload_success_rate": 0,
+      "error_rate": 1.0,
+      "storage_available_tb": 8.5,
+      "requests_per_minute": 320
+    },
+    "ground_truth": {
+      "root_cause": "IAM role policy for upload service was modified to remove s3:PutObject permission, only retaining s3:GetObject during security policy review",
+      "severity": "P1",
+      "remediation_steps": [
+        "Restore s3:PutObject permission to upload-service-role IAM policy",
+        "Verify all required S3 permissions present (PutObject, GetObject, DeleteObject)",
+        "Test upload functionality end-to-end after policy restoration",
+        "Implement IAM policy change review process with service owner approval"
+      ]
+    },
+    "log_id": "log_prod_028",
+    "kb_refs": [
+      "kb_005",
+      "kb_013"
+    ]
+  },
+  {
+    "id": "prod_029",
+    "title": "Redis Cache Cluster Evicting Keys Prematurely",
+    "description": "Application experiencing cache miss rate of 85% instead of typical 15%. Redis memory usage at maximum. Frequent key evictions observed causing database overload from cache misses.",
+    "service": "redis-cache",
+    "environment": "production",
+    "category": "storage",
+    "is_edge_case": false,
+    "edge_case_family": null,
+    "metrics": {
+      "cache_hit_rate": 0.15,
+      "memory_usage_percent": 99,
+      "evicted_keys_per_min": 4500,
+      "connected_clients": 150
+    },
+    "ground_truth": {
+      "root_cause": "New feature deployed storing large session objects (avg 2MB) in Redis without TTL configuration, filling cache memory and triggering aggressive LRU eviction of frequently-accessed small keys",
+      "severity": "P2",
+      "remediation_steps": [
+        "Set 1 hour TTL on session objects to prevent indefinite storage",
+        "Move large session storage from Redis to dedicated session store",
+        "Increase Redis cluster memory from 16GB to 32GB per node",
+        "Implement cache key size monitoring and alerting for keys over 1MB"
+      ]
+    },
+    "log_id": "log_prod_029",
+    "kb_refs": [
+      "kb_005",
+      "kb_013"
+    ]
+  },
+  {
+    "id": "prod_030",
+    "title": "Logging Service Disk Space Exhausted",
+    "description": "Log aggregation service disk utilization at 100% causing log ingestion failures. Application logs not being collected for past 2 hours. Disk write operations failing with ENOSPC errors.",
+    "service": "log-aggregator",
+    "environment": "production",
+    "category": "storage",
+    "is_edge_case": false,
+    "edge_case_family": null,
+    "metrics": {
+      "disk_usage_percent": 100,
+      "disk_available_gb": 0,
+      "log_ingestion_rate": 0,
+      "failed_writes_per_min": 850
+    },
+    "ground_truth": {
+      "root_cause": "Log rotation policy failed to execute due to cron job misconfiguration, preventing deletion of logs older than 7 days, accumulating 980GB of unrotated log files",
+      "severity": "P3",
+      "remediation_steps": [
+        "Manually delete log files older than 7 days to free disk space",
+        "Fix cron job syntax error in log rotation schedule (incorrect day-of-week field)",
+        "Verify log rotation executes successfully and older logs are compressed",
+        "Implement disk usage alerting at 80% threshold to prevent future exhaustion"
+      ]
+    },
+    "log_id": "log_prod_030",
+    "kb_refs": [
+      "kb_005",
+      "kb_013"
+    ]
+  },
+  {
+    "id": "prod_031",
+    "title": "Payment Service High Latency and Timeout Errors",
+    "description": "Payment service showing p99 latency of 8500ms and 15% timeout rate. Database connection pool at 95% utilization with slow query warnings in logs. Users reporting failed transactions at checkout.",
+    "service": "payment-service",
+    "environment": "production",
+    "category": "database_performance",
+    "is_edge_case": true,
+    "edge_case_family": "CCF-1",
+    "metrics": {
+      "payment_service_p99_latency_ms": 8500,
+      "payment_service_timeout_rate": 0.15,
+      "payment_db_connection_pool_utilization": 0.95,
+      "payment_service_error_rate": 0.12,
+      "fraud_check_api_p50_latency_ms": 12000
+    },
+    "ground_truth": {
+      "root_cause": "Upstream fraud-check API ml_inference_timeout_p99 exceeded 2500ms SLO; payment-service lacks circuit breaker config FRAUD_CHECK_CB_MODE in ConfigMap payment-service-config (namespace: payments-prod). Agent must set FRAUD_CHECK_CB_MODE=SOFT_OPEN and FRAUD_CHECK_FALLBACK_SCORE=0.72 via kubectl.",
+      "severity": "P1",
+      "remediation_steps": [
+        "Run: kubectl get configmap payment-service-config -n payments-prod -o yaml | grep FRAUD_CHECK to confirm missing circuit breaker config",
+        "Patch ConfigMap: kubectl patch configmap payment-service-config -n payments-prod --type=merge -p '{\"data\":{\"FRAUD_CHECK_CB_MODE\":\"SOFT_OPEN\",\"FRAUD_CHECK_FALLBACK_SCORE\":\"0.72\"}}'",
+        "Trigger rolling restart: kubectl rollout restart deployment/payment-service -n payments-prod",
+        "Verify circuit breaker active: curl -s http://payment-service.payments-prod.svc:8080/actuator/circuitbreakers | jq '.fraud_check.state'",
+        "Monitor fraud-check latency drop in Grafana dashboard 'payment-service-upstream-deps' panel 'fraud_check_p99_ms'"
+      ],
+      "requires_skill": "CCF1_CROSS_SERVICE_CASCADE"
+    },
+    "log_id": "log_prod_031",
+    "kb_refs": []
+  },
+  {
+    "id": "prod_032",
+    "title": "Search Service Memory Leak and OOMKill Events",
+    "description": "Search service pods restarting every 20 minutes due to OOMKill. Memory usage growing linearly from 2GB to 8GB before crash. Heap dumps show large object retention in cache layer.",
+    "service": "search-service",
+    "environment": "production",
+    "category": "memory_leak",
+    "is_edge_case": true,
+    "edge_case_family": "CCF-1",
+    "metrics": {
+      "search_service_memory_usage_gb": 7.8,
+      "search_service_oomkill_count": 18,
+      "search_service_cache_size_mb": 4200,
+      "search_service_restart_count": 18,
+      "product_catalog_api_response_size_mb": 45
+    },
+    "ground_truth": {
+      "root_cause": "Product catalog-api v2.14.0 deployed 90min ago changed /v2/products response schema to embed full image binaries (field: image_data_base64). Search service client library pinned to v1 schema, causing unbounded memory growth. Must coordinate catalog-api rollback via internal deploy tool 'ship'.",
+      "severity": "P1",
+      "remediation_steps": [
+        "Confirm schema change: curl -s 'http://catalog-api.catalog-prod.svc:9090/v2/products?limit=1' | jq '.items[0] | has(\"image_data_base64\")'",
+        "Roll back catalog-api: ship rollback --service=catalog-api --env=prod --to-version=v2.13.8 --reason='schema-break-search-oom'",
+        "Watch rollback: ship status --service=catalog-api --env=prod --follow",
+        "After rollback, drain search-service pod memory: kubectl rollout restart deployment/search-service -n search-prod",
+        "Verify search-service memory in Grafana panel 'search_service_heap_bytes_used' drops below 2GB within 5min"
+      ],
+      "requires_skill": "CCF1_CROSS_SERVICE_CASCADE"
+    },
+    "log_id": "log_prod_032",
+    "kb_refs": []
+  },
+  {
+    "id": "prod_033",
+    "title": "Order Service Redis Connection Exhaustion",
+    "description": "Order service unable to connect to Redis cluster with 'max connections exceeded' errors. Redis monitoring shows 10000/10000 connections used. Application logs filled with connection timeout errors and retry attempts.",
+    "service": "order-service",
+    "environment": "production",
+    "category": "connection_pool_exhaustion",
+    "is_edge_case": true,
+    "edge_case_family": "CCF-1",
+    "metrics": {
+      "redis_active_connections": 10000,
+      "redis_max_connections": 10000,
+      "order_service_redis_timeout_rate": 0.89,
+      "order_service_connection_errors": 4500,
+      "notification_service_redis_connections": 8900
+    },
+    "ground_truth": {
+      "root_cause": "notification-service v3.8.2 deployed 35min ago has broken Redis connection pool: REDIS_POOL_MAX_IDLE=0 in its ConfigMap causes connections to never be returned to pool. All 500 Redis max-connections consumed by notification-service. Fix: patch ConfigMap notification-service-config and rollback if needed.",
+      "severity": "P1",
+      "remediation_steps": [
+        "Confirm root cause: kubectl exec -n redis-prod redis-master-0 -- redis-cli CLIENT LIST | grep -c 'notification-service' to count connections held",
+        "Patch notification-service ConfigMap: kubectl patch configmap notification-service-config -n notifications-prod --type=merge -p '{\"data\":{\"REDIS_POOL_MAX_IDLE\":\"10\",\"REDIS_POOL_MAX_ACTIVE\":\"50\"}}'",
+        "Force connection release: kubectl rollout restart deployment/notification-service -n notifications-prod",
+        "If connections not released within 60s, rollback: ship rollback --service=notification-service --env=prod --to-version=v3.8.1",
+        "Confirm Redis connection count normal: kubectl exec -n redis-prod redis-master-0 -- redis-cli INFO clients | grep connected_clients"
+      ],
+      "requires_skill": "CCF1_CROSS_SERVICE_CASCADE"
+    },
+    "log_id": "log_prod_033",
+    "kb_refs": []
+  },
+  {
+    "id": "prod_034",
+    "title": "High CPU utilization on auth-service causing slow logins",
+    "description": "Auth-service showing 95% CPU utilization with increased response times. Multiple containers restarting due to OOMKilled events. Users reporting slow login experiences and timeouts.",
+    "service": "auth-service",
+    "environment": "production",
+    "category": "performance",
+    "is_edge_case": true,
+    "edge_case_family": "CCF-2",
+    "metrics": {
+      "cpu_percent": 95,
+      "memory_percent": 88,
+      "restart_count": 12,
+      "avg_response_time_ms": 4500,
+      "error_rate_percent": 3.2
+    },
+    "ground_truth": {
+      "root_cause": "Credential stuffing attack via distributed botnets exploiting weak rate limiting. Auth-service rate limiter uses in-memory token bucket (not distributed), allowing per-pod bypass. Must enable Redis-backed distributed rate limiting via AUTH_RATE_LIMIT_BACKEND=redis and trigger Cloudflare WAF rule CF-RULE-9921 via internal security runbook.",
+      "severity": "P1",
+      "remediation_steps": [
+        "Enable distributed rate limiting: kubectl patch configmap auth-service-config -n auth-prod --type=merge -p '{\"data\":{\"AUTH_RATE_LIMIT_BACKEND\":\"redis\",\"AUTH_RATE_LIMIT_REDIS_KEY\":\"auth:ratelimit:v2\",\"AUTH_RATE_LIMIT_RPM\":\"5\"}}'",
+        "Restart auth-service to apply: kubectl rollout restart deployment/auth-service -n auth-prod",
+        "Activate Cloudflare WAF rule CF-RULE-9921 (credential-stuffing block): curl -X PATCH https://api.cloudflare.com/client/v4/zones/$CF_ZONE_ID/firewall/rules/CF-RULE-9921 -H 'X-Auth-Key: $CF_API_KEY' -d '{\"action\":\"block\"}'",
+        "Rotate compromised credential pool: run internal script ./scripts/security/rotate-leaked-credentials.sh --breach-source=external --dry-run=false",
+        "Verify attack abated: check Grafana dashboard 'auth-security-events' panel 'failed_login_rate_by_ip' drops within 5min"
+      ],
+      "requires_skill": "CCF2_SECURITY_ATTACK"
+    },
+    "log_id": "log_prod_034",
+    "kb_refs": []
+  },
+  {
+    "id": "prod_035",
+    "title": "Memory leak in payment-processor causing pod churn",
+    "description": "Payment-processor showing steady memory growth over 6 hours, now at 92% utilization. Kubernetes evicting pods every 15 minutes. Application logs showing increased garbage collection activity and heap pressure warnings.",
+    "service": "payment-processor",
+    "environment": "production",
+    "category": "resource_exhaustion",
+    "is_edge_case": true,
+    "edge_case_family": "CCF-2",
+    "metrics": {
+      "memory_percent": 92,
+      "heap_usage_mb": 7340,
+      "gc_time_ms": 850,
+      "pod_evictions": 24,
+      "heap_growth_rate_mb_per_hour": 420,
+      "active_connections": 1847
+    },
+    "ground_truth": {
+      "root_cause": "Lateral movement via compromised payment-processor service account token. Attacker exfiltrating data via payment-processor's AWS IAM role arn:aws:iam::940123456789:role/payment-processor-prod. Must revoke via internal secrets rotation tool 'vault-rotate' and trigger security incident IRP-3.",
+      "severity": "P1",
+      "remediation_steps": [
+        "Immediately revoke service account: kubectl delete serviceaccount payment-processor -n payments-prod && kubectl create serviceaccount payment-processor -n payments-prod",
+        "Rotate AWS credentials: vault-rotate --role=payment-processor-prod --env=prod --emergency --notify-security-channel=#security-incidents",
+        "Trigger IRP-3 (lateral movement): ./scripts/security/trigger-irp.sh --playbook=IRP-3 --service=payment-processor --severity=critical",
+        "Block exfil via network policy: kubectl apply -f k8s/network-policies/payment-processor-lockdown.yaml -n payments-prod",
+        "Forensics snapshot: kubectl exec -n payments-prod $(kubectl get pod -n payments-prod -l app=payment-processor -o name | head -1) -- ./scripts/forensics-dump.sh > /tmp/payment-processor-forensics-$(date +%s).tar.gz"
+      ],
+      "requires_skill": "CCF2_SECURITY_ATTACK"
+    },
+    "log_id": "log_prod_035",
+    "kb_refs": []
+  },
+  {
+    "id": "prod_036",
+    "title": "API Gateway returning 503 errors due to rate limiting",
+    "description": "API Gateway showing 503 Service Unavailable errors with rate limit exceeded messages in logs. Local health checks passing. Error rate spiked to 15% over 5 minutes, all errors show 'RateLimitExceeded' error codes pointing to throttling misconfiguration.",
+    "service": "api-gateway",
+    "environment": "production",
+    "category": "rate_limiting",
+    "is_edge_case": true,
+    "edge_case_family": "CCF-3",
+    "metrics": {
+      "api_gateway_rate_limit_errors": 1500,
+      "api_gateway_5xx_rate": 0.15,
+      "api_gateway_cpu_utilization": 0.35,
+      "api_gateway_memory_utilization": 0.42,
+      "api_gateway_request_latency_p99": 450
+    },
+    "ground_truth": {
+      "root_cause": "us-west-2 \u2192 us-east-1 DynamoDB global table replication lag spiked to 47s (SLO: 5s) due to us-west-2 write throttling. Session validation service reads from REPLICA endpoint SESSION_DB_ENDPOINT_READ causing stale session lookups. Fix: toggle SESSION_READ_MODE=PRIMARY to read from primary until replication catches up.",
+      "severity": "P2",
+      "remediation_steps": [
+        "Confirm replication lag: aws dynamodb describe-table --table-name user-sessions-global --region us-east-1 | jq '.Table.Replicas[] | select(.RegionName==\"us-west-2\") | .ReplicaStatusDescription'",
+        "Switch reads to primary: kubectl patch configmap session-service-config -n session-prod --type=merge -p '{\"data\":{\"SESSION_READ_MODE\":\"PRIMARY\",\"SESSION_DB_ENDPOINT_READ\":\"sessions-primary.cluster-xyz.us-east-1.rds.amazonaws.com:5432\"}}'",
+        "Rolling restart: kubectl rollout restart deployment/session-service -n session-prod",
+        "Monitor replication lag recovery: watch -n 5 'aws cloudwatch get-metric-statistics --namespace AWS/DynamoDB --metric-name ReplicationLatency --dimensions Name=TableName,Value=user-sessions-global Name=ReceivingRegion,Value=us-east-1 --start-time $(date -u -d \"5 minutes ago\" +%Y-%m-%dT%H:%M:%S) --end-time $(date -u +%Y-%m-%dT%H:%M:%S) --period 60 --statistics Average'",
+        "Once lag < 2s for 10min, switch SESSION_READ_MODE back to REPLICA and restart"
+      ],
+      "requires_skill": "CCF3_CROSS_REGION_REPLICATION"
+    },
+    "log_id": "log_prod_036",
+    "kb_refs": []
+  },
+  {
+    "id": "prod_037",
+    "title": "Payment processing service timeouts from downstream dependency",
+    "description": "Payment processing service experiencing timeouts when calling fraud detection service. Logs show consistent SocketTimeoutException after 5000ms. Fraud detection service reports healthy with normal latency (avg 200ms) and no error spike.",
+    "service": "payment-processing",
+    "environment": "production",
+    "category": "timeout",
+    "is_edge_case": true,
+    "edge_case_family": "CCF-3",
+    "metrics": {
+      "payment_processing_timeout_errors": 2400,
+      "fraud_detection_p99_latency": 210,
+      "fraud_detection_error_rate": 0.001,
+      "payment_processing_circuit_breaker_open": 1,
+      "payment_processing_thread_pool_exhaustion": 0.89
+    },
+    "ground_truth": {
+      "root_cause": "Async webhook callback system uses SQS queue payment-callbacks-us-east-1 which has 45s cross-region message delay from us-west-2 writes. Payment processor reads result from SQS before result is written, causing RESULT_NOT_FOUND timeout. Must enable PAYMENT_RESULT_DIRECT_FETCH=true to bypass SQS for same-region reads.",
+      "severity": "P1",
+      "remediation_steps": [
+        "Confirm SQS message age: aws sqs get-queue-attributes --queue-url https://sqs.us-east-1.amazonaws.com/940123456789/payment-callbacks-us-east-1 --attribute-names ApproximateNumberOfMessages,MessageRetentionPeriod | jq",
+        "Enable direct fetch bypass: kubectl patch configmap payment-processor-config -n payments-prod --type=merge -p '{\"data\":{\"PAYMENT_RESULT_DIRECT_FETCH\":\"true\",\"PAYMENT_RESULT_FETCH_TIMEOUT_MS\":\"10000\",\"PAYMENT_RESULT_FETCH_ENDPOINT\":\"http://payment-results-api.payments-prod.svc:8080\"}}'",
+        "Restart payment-processor: kubectl rollout restart deployment/payment-processor -n payments-prod",
+        "Verify timeout rate drops: curl -s http://payment-processor.payments-prod.svc:8080/metrics | grep payment_result_timeout_total",
+        "Create SQS dead-letter queue alert: aws cloudwatch put-metric-alarm --alarm-name payment-callbacks-dlq-depth --metric-name ApproximateNumberOfMessagesNotVisible --threshold 100"
+      ],
+      "requires_skill": "CCF3_CROSS_REGION_REPLICATION"
+    },
+    "log_id": "log_prod_037",
+    "kb_refs": []
+  },
+  {
+    "id": "prod_038",
+    "title": "Payment Gateway Timeouts Spike During Peak Hours",
+    "description": "Payment service experiencing elevated 504 timeout errors, affecting 3% of checkout transactions. Database connection pool showing healthy utilization at 45%. Gateway provider dashboard shows all systems operational.",
+    "service": "payment-gateway",
+    "environment": "production",
+    "category": "timeout",
+    "is_edge_case": true,
+    "edge_case_family": "CCF-4",
+    "metrics": {
+      "timeout_rate": 0.03,
+      "db_connection_pool_utilization": 0.45,
+      "avg_response_time_ms": 8500,
+      "cache_hit_rate": 0.92
+    },
+    "ground_truth": {
+      "root_cause": "Race condition in idempotency key generation: payment-service uses UUID v4 + timestamp (millisecond precision), but under concurrent load two requests land in same millisecond, generate same key, causing mutual blocking on idempotency table row lock (table: payment_idempotency_keys). Fix: migrate to UUID v7 (nanosecond-ordered) via IDEMPOTENCY_KEY_VERSION=v7 feature flag.",
+      "severity": "P1",
+      "remediation_steps": [
+        "Confirm duplicate key collisions: kubectl exec -n payments-prod payments-db-primary-0 -- psql -U payments_svc -c \"SELECT idempotency_key, COUNT(*) FROM payment_idempotency_keys WHERE created_at > NOW() - INTERVAL '30 minutes' GROUP BY idempotency_key HAVING COUNT(*) > 1 LIMIT 10;\"",
+        "Enable UUID v7 idempotency keys: kubectl patch configmap payment-service-config -n payments-prod --type=merge -p '{\"data\":{\"IDEMPOTENCY_KEY_VERSION\":\"v7\",\"IDEMPOTENCY_KEY_NAMESPACE\":\"payments-prod-v2\"}}'",
+        "Add nanosecond-precision + request UUID suffix as interim: kubectl patch configmap payment-service-config -n payments-prod --type=merge -p '{\"data\":{\"IDEMPOTENCY_KEY_SUFFIX_MODE\":\"uuid-nano\"}}'",
+        "Rolling restart payment-service: kubectl rollout restart deployment/payment-service -n payments-prod",
+        "Monitor idempotency collision rate in Grafana 'payment-service-idempotency' panel 'idempotency_collision_rate' should drop to 0"
+      ],
+      "requires_skill": "CCF4_DISTRIBUTED_RACE_CONDITION"
+    },
+    "log_id": "log_prod_038",
+    "kb_refs": []
+  },
+  {
+    "id": "prod_039",
+    "title": "Order Processing Service Memory Leak",
+    "description": "Order service pods restarting every 2-3 hours with OOMKilled status. Memory usage steadily climbing from 1.2GB to 4GB over 90 minutes. Application logs show normal request volumes and no obvious memory retention patterns.",
+    "service": "order-processing-service",
+    "environment": "production",
+    "category": "memory_leak",
+    "is_edge_case": true,
+    "edge_case_family": "CCF-4",
+    "metrics": {
+      "memory_usage_mb": 4096,
+      "pod_restart_count": 47,
+      "avg_uptime_minutes": 142,
+      "request_rate_rpm": 850
+    },
+    "ground_truth": {
+      "root_cause": "Distributed race condition in order finalization: orders-service and order-events-consumer both call finalize_order() concurrently on same external_reference_id, creating duplicate order records. Missing DB constraint allows duplicates. Fix: add unique constraint on orders.external_reference_id and enable ORDERS_FINALIZE_LOCK=redis.",
+      "severity": "P1",
+      "remediation_steps": [
+        "Count duplicate orders: kubectl exec -n orders-prod orders-db-primary-0 -- psql -U orders_svc -c \"SELECT external_reference_id, COUNT(*) FROM orders WHERE created_at > NOW() - INTERVAL '1 hour' GROUP BY external_reference_id HAVING COUNT(*) > 1;\"",
+        "Add unique constraint with CONCURRENTLY (non-blocking): kubectl exec -n orders-prod orders-db-primary-0 -- psql -U orders_svc -c \"CREATE UNIQUE INDEX CONCURRENTLY IF NOT EXISTS idx_orders_ext_ref_unique ON orders(external_reference_id) WHERE status != 'CANCELLED';\"",
+        "Enable Redis distributed lock for finalization: kubectl patch configmap orders-service-config -n orders-prod --type=merge -p '{\"data\":{\"ORDERS_FINALIZE_LOCK\":\"redis\",\"ORDERS_FINALIZE_LOCK_TTL_MS\":\"5000\",\"ORDERS_FINALIZE_LOCK_REDIS_KEY\":\"orders:finalize:lock\"}}'",
+        "Restart orders-service and order-events-consumer: kubectl rollout restart deployment/orders-service deployment/order-events-consumer -n orders-prod",
+        "Deduplicate existing duplicate orders: kubectl exec -n orders-prod orders-db-primary-0 -- psql -U orders_svc -f /sql/deduplicate-orders-by-ext-ref.sql"
+      ],
+      "requires_skill": "CCF4_DISTRIBUTED_RACE_CONDITION"
+    },
+    "log_id": "log_prod_039",
+    "kb_refs": []
+  },
+  {
+    "id": "prod_040",
+    "title": "Redis Cache Cluster High CPU Utilization",
+    "description": "Redis cluster nodes showing sustained 85% CPU usage with GET operation latency increased to p99 450ms. Cache eviction rate appears normal at 0.2%. Application teams reporting intermittent stale data reads despite TTL configuration being correct.",
+    "service": "redis-cache-cluster",
+    "environment": "production",
+    "category": "performance_degradation",
+    "is_edge_case": true,
+    "edge_case_family": "CCF-4",
+    "metrics": {
+      "cpu_utilization": 0.85,
+      "p99_get_latency_ms": 450,
+      "eviction_rate": 0.002,
+      "connections_active": 1840
+    },
+    "ground_truth": {
+      "root_cause": "Cache-aside thundering herd: 12 payment-service replicas simultaneously detect cache miss on key payments:config:v3 and issue concurrent SET (not SET NX), causing Redis CPU spike from 12 redundant writes. Fix: replace SET with SET NX in cache client via CACHE_SET_MODE=nx and add CACHE_LOCK_KEY_PREFIX=payments:write-lock.",
+      "severity": "P2",
+      "remediation_steps": [
+        "Confirm thundering herd via Redis MONITOR: kubectl exec -n redis-prod redis-master-0 -- redis-cli MONITOR 2>&1 | grep 'payments:config:v3' | head -20",
+        "Enable SET NX mode: kubectl patch configmap payment-service-config -n payments-prod --type=merge -p '{\"data\":{\"CACHE_SET_MODE\":\"nx\",\"CACHE_LOCK_KEY_PREFIX\":\"payments:write-lock\",\"CACHE_LOCK_TTL_MS\":\"500\"}}'",
+        "Restart payment-service: kubectl rollout restart deployment/payment-service -n payments-prod",
+        "Pre-warm cache to prevent immediate thundering herd: kubectl run cache-warmer --image=payments-tools:latest -n payments-prod --rm -it -- ./scripts/warm-cache.sh --keys=payments:config:v3",
+        "Monitor Redis CPU in Grafana 'redis-cluster-ops' panel 'redis_cpu_sys_seconds_total' should drop below 20%"
+      ],
+      "requires_skill": "CCF4_DISTRIBUTED_RACE_CONDITION"
+    },
+    "log_id": "log_prod_040",
+    "kb_refs": []
+  },
+  {
+    "id": "prod_041",
+    "title": "API Gateway returning 401 errors for valid user tokens",
+    "description": "API Gateway experiencing elevated 401 authentication failures starting at 14:32 UTC. Users reporting they cannot access their accounts despite valid credentials. JWT validation library logs show 'signature verification failed' errors for tokens issued by auth service.",
+    "service": "api-gateway",
+    "environment": "production",
+    "category": "authentication",
+    "is_edge_case": true,
+    "edge_case_family": "CCF-5",
+    "metrics": {
+      "http_401_rate": 847,
+      "jwt_signature_failures": 423,
+      "gateway_cpu_percent": 34,
+      "gateway_memory_percent": 52,
+      "auth_service_response_time_ms": 89
+    },
+    "ground_truth": {
+      "root_cause": "NTP daemon crashed on api-gateway fleet (3/8 instances) causing +4min clock skew. Auth-service JWTs have 5min expiry; api-gateway clock skew causes valid tokens to appear expired. Fix: restart ntpd on affected api-gateway instances and verify skew < 500ms via internal clock-check tool.",
+      "severity": "P1",
+      "remediation_steps": [
+        "Identify skewed instances: for pod in $(kubectl get pods -n api-gateway-prod -l app=api-gateway -o name); do kubectl exec -n api-gateway-prod $pod -- ntpstat 2>&1 | grep -q 'unsynchronised' && echo \"SKEWED: $pod\"; done",
+        "Restart ntpd on each skewed pod: kubectl get pods -n api-gateway-prod -l app=api-gateway -o name | xargs -I{} kubectl exec -n api-gateway-prod {} -- systemctl restart ntp",
+        "Verify clock sync: kubectl get pods -n api-gateway-prod -l app=api-gateway -o name | xargs -I{} kubectl exec -n api-gateway-prod {} -- ntpstat",
+        "Force NTP resync if still drifted: kubectl get pods -n api-gateway-prod -l app=api-gateway -o name | xargs -I{} kubectl exec -n api-gateway-prod {} -- ntpdate -u ntp.internal.company.com",
+        "Confirm JWT validation recovering: watch -n 5 'kubectl exec -n api-gateway-prod $(kubectl get pod -n api-gateway-prod -l app=api-gateway -o name | head -1) -- curl -s localhost:8080/metrics | grep jwt_validation_error_total'"
+      ],
+      "requires_skill": "CCF5_CLOCK_SKEW"
+    },
+    "log_id": "log_prod_041",
+    "kb_refs": []
+  },
+  {
+    "id": "prod_042",
+    "title": "Auth service degradation causing intermittent login failures",
+    "description": "Auth service showing increased error rates and database connection pool exhaustion starting 09:15 UTC. Users experiencing intermittent login failures with 'invalid token' errors. Database metrics indicate connection pool at 98% capacity with slow query warnings.",
+    "service": "auth-service",
+    "environment": "production",
+    "category": "database",
+    "is_edge_case": true,
+    "edge_case_family": "CCF-5",
+    "metrics": {
+      "db_connection_pool_utilization": 98,
+      "auth_error_rate": 312,
+      "db_slow_query_count": 67,
+      "token_validation_failures": 289,
+      "auth_service_p99_latency_ms": 3420
+    },
+    "ground_truth": {
+      "root_cause": "payment-service instances have NTP clock drift of +6 minutes ahead; when validating JWTs issued by auth-service (correct time), payment-service clock makes tokens appear issued in future (invalid). Must resync payment-service clocks and temporarily extend JWT_CLOCK_SKEW_TOLERANCE_SECONDS in payment-service ConfigMap.",
+      "severity": "P1",
+      "remediation_steps": [
+        "Measure clock drift per pod: for pod in $(kubectl get pods -n payments-prod -l app=payment-service -o name); do echo -n \"$pod: \"; kubectl exec -n payments-prod $pod -- python3 -c \"import time,ntplib; c=ntplib.NTPClient(); r=c.request('ntp.internal.company.com',version=3); print(f'drift={r.offset:.2f}s')\"; done",
+        "Extend JWT tolerance as immediate mitigation: kubectl patch configmap payment-service-config -n payments-prod --type=merge -p '{\"data\":{\"JWT_CLOCK_SKEW_TOLERANCE_SECONDS\":\"420\"}}'",
+        "Resync NTP on all payment-service pods: kubectl get pods -n payments-prod -l app=payment-service -o name | xargs -I{} kubectl exec -n payments-prod {} -- ntpdate -u ntp.internal.company.com",
+        "Restart payment-service to apply clock + config: kubectl rollout restart deployment/payment-service -n payments-prod",
+        "After sync confirmed, restore tolerance: kubectl patch configmap payment-service-config -n payments-prod --type=merge -p '{\"data\":{\"JWT_CLOCK_SKEW_TOLERANCE_SECONDS\":\"30\"}}'"
+      ],
+      "requires_skill": "CCF5_CLOCK_SKEW"
+    },
+    "log_id": "log_prod_042",
+    "kb_refs": []
+  },
+  {
+    "id": "prod_043",
+    "title": "User service pods repeatedly OOMKilled in production",
+    "description": "User service pods are being OOMKilled every 2-3 hours with memory usage appearing to spike to container limits. Application logs show successful request processing right before termination. Memory metrics indicate the user-service container is consuming 95% of its allocation.",
+    "service": "user-service",
+    "environment": "production",
+    "category": "memory_exhaustion",
+    "is_edge_case": true,
+    "edge_case_family": "CCF-6",
+    "metrics": {
+      "user_service_memory_usage_percent": 95,
+      "user_service_oom_kills_last_6h": 8,
+      "user_service_heap_size_mb": 1820,
+      "envoy_sidecar_memory_mb": 2340,
+      "pod_memory_limit_mb": 2048
+    },
+    "ground_truth": {
+      "root_cause": "Envoy sidecar proxy (v1.28.3) memory leak: accumulates connection metadata structs for HTTP/2 connections that are never GC'd. Fix: add Envoy memory limit annotation and force proxy restart. Must use 'kubectl rollout restart' with annotation 'sidecar.istio.io/proxyCPULimit' and 'sidecar.istio.io/proxyMemoryLimit' patched to 512Mi.",
+      "severity": "P1",
+      "remediation_steps": [
+        "Confirm Envoy is the leaking container: kubectl top pod -n user-prod --containers | grep envoy | sort -k4 -rh | head -10",
+        "Add Envoy memory limit annotation to deployment: kubectl patch deployment user-service -n user-prod --type=json -p '[{\"op\":\"add\",\"path\":\"/spec/template/metadata/annotations/sidecar.istio.io~1proxyMemoryLimit\",\"value\":\"512Mi\"},{\"op\":\"add\",\"path\":\"/spec/template/metadata/annotations/sidecar.istio.io~1proxyCPULimit\",\"value\":\"500m\"}]'",
+        "Rolling restart to apply Envoy memory limit: kubectl rollout restart deployment/user-service -n user-prod",
+        "Monitor Envoy memory stabilizes: watch -n 10 'kubectl top pod -n user-prod --containers | grep envoy | awk \"{print \\$1, \\$4}\"'",
+        "File Istio upgrade ticket: set ISTIO_VERSION=1.29.0 in platform/istio/version.tf and run 'make istio-upgrade ENV=prod' to get fixed Envoy build"
+      ],
+      "requires_skill": "CCF6_SIDECAR_OOM"
+    },
+    "log_id": "log_prod_043",
+    "kb_refs": []
+  },
+  {
+    "id": "prod_044",
+    "title": "Payment API experiencing intermittent crashes under load",
+    "description": "Payment API pods crash during peak traffic hours with exit code 137. JVM heap dumps show normal memory patterns. Logs indicate 'java.lang.OutOfMemoryError: Kill process or sacrifice child' moments before termination, suggesting Java heap issues.",
+    "service": "payment-api",
+    "environment": "production",
+    "category": "application_crash",
+    "is_edge_case": true,
+    "edge_case_family": "CCF-6",
+    "metrics": {
+      "payment_api_jvm_heap_used_percent": 78,
+      "payment_api_exit_code_137_count": 14,
+      "payment_api_gc_pause_time_ms": 245,
+      "fluentd_sidecar_memory_mb": 1950,
+      "fluentd_buffer_queue_length": 48320
+    },
+    "ground_truth": {
+      "root_cause": "Fluentd sidecar buffering excessive logs in memory during traffic spikes (FLUENTD_BUFFER_TYPE=memory, FLUENTD_BUFFER_CHUNK_LIMIT=64MB \u00d7 8 chunks = 512MB). Must switch to file-based buffering via annotation 'logging.company.com/fluentd-buffer-type=file' and patch fluentd ConfigMap.",
+      "severity": "P1",
+      "remediation_steps": [
+        "Confirm fluentd is memory leak source: kubectl top pod -n payments-prod --containers | grep fluentd",
+        "Switch to file-based buffer by patching fluentd ConfigMap: kubectl patch configmap fluentd-sidecar-config -n payments-prod --type=merge -p '{\"data\":{\"FLUENTD_BUFFER_TYPE\":\"file\",\"FLUENTD_BUFFER_PATH\":\"/var/log/fluentd-buffers\",\"FLUENTD_BUFFER_CHUNK_LIMIT\":\"8MB\",\"FLUENTD_BUFFER_TOTAL_LIMIT\":\"256MB\"}}'",
+        "Add buffer volume mount annotation to deployment: kubectl patch deployment payment-api -n payments-prod --type=json -p '[{\"op\":\"add\",\"path\":\"/spec/template/metadata/annotations/logging.company.com~1fluentd-buffer-type\",\"value\":\"file\"}]'",
+        "Rolling restart to apply: kubectl rollout restart deployment/payment-api -n payments-prod",
+        "Verify fluentd memory usage drops: watch -n 10 'kubectl top pod -n payments-prod --containers | grep fluentd'"
+      ],
+      "requires_skill": "CCF6_SIDECAR_OOM"
+    },
+    "log_id": "log_prod_044",
+    "kb_refs": []
+  },
+  {
+    "id": "prod_045",
+    "title": "Inventory service memory leak causing cluster instability",
+    "description": "Inventory service shows steadily climbing memory usage in Prometheus dashboards, reaching 1.9GB before pod restarts. Application profiling shows suspicious object retention in cache layers. Multiple pods affected simultaneously during business hours.",
+    "service": "inventory-service",
+    "environment": "production",
+    "category": "memory_leak",
+    "is_edge_case": true,
+    "edge_case_family": "CCF-6",
+    "metrics": {
+      "inventory_service_memory_rss_mb": 1420,
+      "inventory_service_cache_size_mb": 980,
+      "inventory_service_restarts_6h": 12,
+      "envoy_active_connections": 8450,
+      "envoy_memory_allocated_mb": 2100,
+      "envoy_upstream_cx_total": 284920
+    },
+    "ground_truth": {
+      "root_cause": "Envoy sidecar accumulating HTTP/2 stream state for long-lived gRPC connections to inventory-db-proxy, causing per-pod memory growth of ~50MB/hr. Fix: set Envoy HTTP/2 stream idle timeout and restart. Requires patching VirtualService 'inventory-service-vs' idleTimeout field in Istio config.",
+      "severity": "P1",
+      "remediation_steps": [
+        "Confirm Envoy HTTP/2 stream accumulation: kubectl exec -n inventory-prod $(kubectl get pod -n inventory-prod -l app=inventory-service -o name | head -1) -c istio-proxy -- curl -s localhost:15000/stats | grep 'http2.streams_active'",
+        "Patch Istio VirtualService to add stream idle timeout: kubectl patch virtualservice inventory-service-vs -n inventory-prod --type=merge -p '{\"spec\":{\"http\":[{\"timeout\":\"60s\",\"retries\":{\"attempts\":3,\"perTryTimeout\":\"20s\"}}]}}'",
+        "Add Envoy HTTP/2 keepalive annotation: kubectl patch deployment inventory-service -n inventory-prod --type=json -p '[{\"op\":\"add\",\"path\":\"/spec/template/metadata/annotations/proxy.istio.io~1config\",\"value\":\"{\\\"httpProtocolOptions\\\":{\\\"h2UpgradePolicy\\\":\\\"DO_NOT_UPGRADE\\\"},\\\"http2ProtocolOptions\\\":{\\\"maxConcurrentStreams\\\":100}}\"}]'",
+        "Rolling restart: kubectl rollout restart deployment/inventory-service -n inventory-prod",
+        "Verify stream count stabilizes: watch -n 30 'kubectl exec -n inventory-prod $(kubectl get pod -n inventory-prod -l app=inventory-service -o name | head -1) -c istio-proxy -- curl -s localhost:15000/stats | grep http2.streams_active'"
+      ],
+      "requires_skill": "CCF6_SIDECAR_OOM"
+    },
+    "log_id": "log_prod_045",
+    "kb_refs": []
+  },
+  {
+    "id": "prod_046",
+    "title": "Database connection pool exhaustion causing timeouts",
+    "description": "Users reporting intermittent 500 errors from API gateway with connection pool exhausted errors in logs. Database monitoring shows connection count at 87% of max pool size. Some requests succeed while others fail with no clear pattern.",
+    "service": "api-gateway",
+    "environment": "production",
+    "category": "database",
+    "is_edge_case": true,
+    "edge_case_family": "CCF-7",
+    "metrics": {
+      "db_connection_pool_utilization": 0.87,
+      "api_gateway_error_rate": 0.23,
+      "p99_latency_ms": 8900,
+      "failed_requests_per_min": 145
+    },
+    "ground_truth": {
+      "root_cause": "Config drift: 3/8 api-gateway replicas running stale feature flag config (config hash abc123def vs current hash 9f7e2a1b). Caused by failed ConfigMap propagation during deploy. Must force ConfigMap sync via internal tool 'config-sync' and verify config hash consistency across all replicas.",
+      "severity": "P2",
+      "remediation_steps": [
+        "Identify drifted replicas: for pod in $(kubectl get pods -n api-gateway-prod -l app=api-gateway -o name); do hash=$(kubectl exec -n api-gateway-prod $pod -- curl -s localhost:8080/actuator/configprops | jq -r '.config_hash'); echo \"$pod: $hash\"; done",
+        "Force ConfigMap re-sync via internal tool: config-sync --namespace=api-gateway-prod --configmap=api-gateway-config --force --verify",
+        "Annotate deployment to force pod recreation: kubectl patch deployment api-gateway -n api-gateway-prod --type=json -p '[{\"op\":\"add\",\"path\":\"/spec/template/metadata/annotations/config-sync.company.com~1forced-at\",\"value\":\"'$(date -u +%Y%m%dT%H%M%SZ)'\"}]'",
+        "Rolling restart: kubectl rollout restart deployment/api-gateway -n api-gateway-prod",
+        "Verify config hash uniform across all pods: kubectl get pods -n api-gateway-prod -l app=api-gateway -o name | xargs -I{} kubectl exec -n api-gateway-prod {} -- curl -s localhost:8080/actuator/configprops | jq -r '.config_hash' | sort | uniq -c"
+      ],
+      "requires_skill": "CCF7_CONFIG_DRIFT"
+    },
+    "log_id": "log_prod_046",
+    "kb_refs": []
+  },
+  {
+    "id": "prod_047",
+    "title": "CDN cache hit ratio degradation impacting origin",
+    "description": "Origin servers experiencing 3x traffic spike with CDN reporting degraded cache hit ratio from 92% to 34%. CDN logs show high volumes of cache misses for static assets. Origin CPU spiking to 85% across all instances.",
+    "service": "cdn",
+    "environment": "production",
+    "category": "caching",
+    "is_edge_case": true,
+    "edge_case_family": "CCF-7",
+    "metrics": {
+      "cdn_cache_hit_ratio": 0.34,
+      "origin_requests_per_sec": 8450,
+      "origin_cpu_percent": 85,
+      "cdn_cache_misses_per_min": 12300
+    },
+    "ground_truth": {
+      "root_cause": "Cache-control header config drift across origin fleet: 40% of origins (8/20 replicas) running nginx config version 2.1 (max-age=3600) while others run v2.3 (max-age=86400). CDN sees inconsistent TTLs and purges frequently. Must run 'nginx-config-drift-check.sh' and force uniform config via Ansible playbook 'nginx-origin-config-sync.yml'.",
+      "severity": "P2",
+      "remediation_steps": [
+        "Run drift check script: ./scripts/nginx-config-drift-check.sh --fleet=origin-prod --check=cache-control-headers | tee /tmp/drift-report-$(date +%s).txt",
+        "Apply uniform config via Ansible: ansible-playbook playbooks/nginx-origin-config-sync.yml -i inventory/production --extra-vars 'nginx_config_version=2.3 force=true' --diff",
+        "Reload nginx on all origins (zero-downtime): ansible -i inventory/production origin-prod -m shell -a 'nginx -t && nginx -s reload'",
+        "Purge CDN cache to force re-fetching with consistent TTLs: ./scripts/cdn-purge.sh --zone=prod --pattern='/api/*' --provider=cloudflare",
+        "Verify cache-control consistency: curl -sI https://api.company.com/v1/products/1 | grep -i cache-control from 5 different CDN POPs via ./scripts/cdn-pop-check.sh --url=https://api.company.com/v1/products/1"
+      ],
+      "requires_skill": "CCF7_CONFIG_DRIFT"
+    },
+    "log_id": "log_prod_047",
+    "kb_refs": []
+  },
+  {
+    "id": "prod_048",
+    "title": "Database connection pool exhaustion on orders-db",
+    "description": "Orders database showing 100% connection pool utilization and query timeout errors. Application logs show repeated 'connection timeout' exceptions from orders-service. Database metrics indicate normal CPU and memory usage but max connections reached.",
+    "service": "orders-db",
+    "environment": "production",
+    "category": "database",
+    "is_edge_case": true,
+    "edge_case_family": "CCF-8",
+    "metrics": {
+      "db_connections_used": 500,
+      "db_connections_max": 500,
+      "db_cpu_percent": 45,
+      "db_query_timeout_rate": 892,
+      "orders_service_error_rate": 67.3
+    },
+    "ground_truth": {
+      "root_cause": "orders-service rollback 8 minutes ago invalidated entire Redis cache (key prefix orders:cache:v3:*) due to CACHE_INVALIDATE_ON_DEPLOY=true flag. Cold cache causing thundering herd on orders-db. Must immediately disable RETRY_ENABLED and pre-warm cache using orders-cache-warmer job before re-enabling traffic.",
+      "severity": "P1",
+      "remediation_steps": [
+        "Disable retries to stop thundering herd: kubectl patch configmap orders-service-config -n orders-prod --type=merge -p '{\"data\":{\"RETRY_ENABLED\":\"false\",\"RETRY_MAX_ATTEMPTS\":\"0\"}}'",
+        "Restart orders-service to apply: kubectl rollout restart deployment/orders-service -n orders-prod",
+        "Pre-warm Redis cache via cache-warmer job: kubectl create job orders-cache-warm-$(date +%s) --image=orders-tools:latest -n orders-prod -- ./scripts/warm-orders-cache.sh --key-prefix=orders:cache:v3 --batch-size=500 --concurrency=10",
+        "Monitor cache warm progress: kubectl logs -n orders-prod -l job-name=orders-cache-warm --follow",
+        "Once cache hit rate > 80% (check Grafana 'orders-service-cache' panel 'redis_cache_hit_rate'), re-enable retries: kubectl patch configmap orders-service-config -n orders-prod --type=merge -p '{\"data\":{\"RETRY_ENABLED\":\"true\",\"RETRY_MAX_ATTEMPTS\":\"3\"}}'"
+      ],
+      "requires_skill": "CCF8_ROLLBACK_CACHE_INVALIDATION"
+    },
+    "log_id": "log_prod_048",
+    "kb_refs": []
+  },
+  {
+    "id": "prod_049",
+    "title": "Redis cache cluster experiencing memory pressure",
+    "description": "Cache-redis-prod cluster showing eviction rate spike from 0 to 15k/sec and memory usage at 94%. GET operations have latency increase from 2ms to 180ms p99. Multiple services reporting cache miss rates elevated to 78% from baseline 5%.",
+    "service": "cache-redis-prod",
+    "environment": "production",
+    "category": "cache",
+    "is_edge_case": true,
+    "edge_case_family": "CCF-8",
+    "metrics": {
+      "redis_memory_used_percent": 94,
+      "redis_evictions_per_sec": 15420,
+      "redis_get_latency_p99_ms": 180,
+      "cache_miss_rate_percent": 78,
+      "redis_connected_clients": 3847
+    },
+    "ground_truth": {
+      "root_cause": "api-gateway rollback 12 minutes ago reset all in-memory circuit breakers to CLOSED state, causing requests to flood downstream services that were still degraded. Must implement staggered restart with circuit breaker pre-warming via CB_WARMUP_MODE=gradual and CIRCUIT_BREAKER_INITIAL_STATE=HALF_OPEN config.",
+      "severity": "P1",
+      "remediation_steps": [
+        "Set circuit breakers to HALF_OPEN on restart: kubectl patch configmap api-gateway-config -n api-gateway-prod --type=merge -p '{\"data\":{\"CB_WARMUP_MODE\":\"gradual\",\"CIRCUIT_BREAKER_INITIAL_STATE\":\"HALF_OPEN\",\"CB_WARMUP_PROBE_INTERVAL_MS\":\"2000\",\"CB_WARMUP_PROBE_COUNT\":\"5\"}}'",
+        "Staggered restart - 10% every 2 minutes: ./scripts/staggered-rollout-restart.sh --deployment=api-gateway --namespace=api-gateway-prod --batch-percent=10 --interval-minutes=2",
+        "Monitor circuit breaker state progression: watch -n 10 'kubectl exec -n api-gateway-prod $(kubectl get pod -n api-gateway-prod -l app=api-gateway -o name | head -1) -- curl -s localhost:8080/actuator/circuitbreakers | jq .[] | grep -E \"state|name\"'",
+        "Watch error rate during staggered restart: kubectl exec -n api-gateway-prod $(kubectl get pod -n api-gateway-prod -l app=api-gateway -o name | head -1) -- curl -s localhost:9090/metrics | grep api_gateway_error_rate",
+        "If error rate spikes > 5%, pause rollout: ./scripts/staggered-rollout-restart.sh --deployment=api-gateway --namespace=api-gateway-prod --pause"
+      ],
+      "requires_skill": "CCF8_ROLLBACK_CACHE_INVALIDATION"
+    },
+    "log_id": "log_prod_049",
+    "kb_refs": []
+  },
+  {
+    "id": "prod_050",
+    "title": "High CPU utilization on payment-processor service",
+    "description": "Payment-processor showing sustained 95% CPU across all pods with container throttling events. APM traces show slow JSON serialization operations taking 400ms per request. No recent deployments to payment-processor, resource requests unchanged at 2 CPU cores per pod.",
+    "service": "payment-processor",
+    "environment": "production",
+    "category": "performance",
+    "is_edge_case": true,
+    "edge_case_family": "CCF-8",
+    "metrics": {
+      "payment_processor_cpu_percent": 95,
+      "payment_processor_throttle_count": 1247,
+      "json_serialization_avg_ms": 412,
+      "payment_processor_rps": 8900,
+      "payment_processor_error_rate": 12.4
+    },
+    "ground_truth": {
+      "root_cause": "checkout-service rollback 15 minutes ago cleared distributed rate limiting state (Redis key checkout:ratelimit:v2:*), allowing unlimited traffic flood to downstream payment-processor. Must immediately scale down checkout-service and restore rate limit state from rate-limiter backup snapshot.",
+      "severity": "P1",
+      "remediation_steps": [
+        "Emergency scale down checkout-service to throttle flood: kubectl scale deployment checkout-service -n checkout-prod --replicas=10",
+        "Restore rate limiter state from snapshot: kubectl exec -n redis-prod redis-master-0 -- redis-cli --pipe < /backups/ratelimit-snapshot-latest.rdb",
+        "Verify rate limit keys restored: kubectl exec -n redis-prod redis-master-0 -- redis-cli KEYS 'checkout:ratelimit:v2:*' | wc -l",
+        "Gradually scale checkout-service back up: for replicas in 20 40 60 80; do kubectl scale deployment checkout-service -n checkout-prod --replicas=$replicas; sleep 120; kubectl exec -n payments-prod $(kubectl get pod -n payments-prod -l app=payment-processor -o name | head -1) -- curl -s localhost:8080/metrics | grep payment_processor_cpu_utilization; done",
+        "Once payment-processor CPU < 70%, restore full checkout capacity: kubectl scale deployment checkout-service -n checkout-prod --replicas=80"
+      ],
+      "requires_skill": "CCF8_ROLLBACK_CACHE_INVALIDATION"
+    },
+    "log_id": "log_prod_050",
+    "kb_refs": []
+  },
+  {
+    "id": "prod_051",
+    "title": "Auth service CPU spike from distributed login attempts",
+    "service": "auth-service",
+    "environment": "production",
+    "category": "security",
+    "description": "Auth service CPU elevated to 89% across all pods. Login failure rate reached 94%. Request volume 5x baseline with traffic distributed across 89 source IPs. BCrypt hashing operations consuming disproportionate CPU, legitimate logins timing out.",
+    "severity": "P1",
+    "is_edge_case": true,
+    "edge_case_family": "CCF-2",
+    "log_id": "log_prod_051",
+    "metrics": {
+      "cpu_percent": 89,
+      "login_failure_rate": 0.94,
+      "req_per_min": 2100,
+      "source_ip_count": 89
+    },
+    "ground_truth": {
+      "root_cause": "Distributed botnet executing account takeover via credential stuffing against auth-service. Botnet rotates through 89 IPs evading per-IP rate limits. Auth-service in-memory rate limiter ineffective against distributed patterns; each pod maintains independent state with no shared coordination.",
+      "severity": "P1",
+      "remediation_steps": [
+        "Switch to Redis-backed distributed rate limiting: kubectl patch configmap auth-service-config -n auth-prod --type=merge -p '{\"data\":{\"AUTH_RATE_LIMIT_BACKEND\":\"redis\",\"AUTH_RATE_LIMIT_REDIS_KEY\":\"auth:ratelimit:v2\",\"AUTH_RATE_LIMIT_RPM\":\"5\"}}'",
+        "Restart to apply: kubectl rollout restart deployment/auth-service -n auth-prod",
+        "Activate Cloudflare WAF block rule CF-RULE-9921: curl -X PATCH https://api.cloudflare.com/client/v4/zones/$CF_ZONE_ID/firewall/rules/CF-RULE-9921 -H 'X-Auth-Key: $CF_API_KEY' -d '{\"action\":\"block\"}'",
+        "Rotate compromised credential pool: ./scripts/security/rotate-leaked-credentials.sh --breach-source=external --dry-run=false",
+        "Verify on Grafana 'auth-security-events' panel 'failed_login_rate_by_ip' drops within 5min"
+      ]
+    },
+    "requires_skill": null
+  },
+  {
+    "id": "prod_052",
+    "title": "Session service returning stale authentication state cross-region",
+    "service": "session-service",
+    "environment": "production",
+    "category": "database",
+    "description": "Session service in us-east-1 returning stale session state causing 403 errors for valid users. 18% of authentication checks failing. Issue exclusively affects users whose sessions were established in the last 12 minutes.",
+    "severity": "P2",
+    "is_edge_case": true,
+    "edge_case_family": "CCF-3",
+    "log_id": "log_prod_052",
+    "metrics": {
+      "error_rate": 0.18,
+      "replication_lag_s": 720,
+      "affected_region": "us-east-1"
+    },
+    "ground_truth": {
+      "root_cause": "DynamoDB global table replication lag between us-west-2 (write region) and us-east-1 (read region) spiked to 12 minutes due to us-west-2 provisioned throughput exhaustion causing write throttling. Session-service reads from us-east-1 replica but session writes commit to us-west-2 primary; stale replica serves sessions as not-yet-existing.",
+      "severity": "P2",
+      "remediation_steps": [
+        "Confirm replication lag: aws dynamodb describe-table --table-name user-sessions-global --region us-east-1 | jq '.Table.Replicas[] | select(.RegionName==\"us-west-2\") | .ReplicaStatusDescription'",
+        "Switch reads to primary region: kubectl patch configmap session-service-config -n session-prod --type=merge -p '{\"data\":{\"SESSION_READ_MODE\":\"PRIMARY\",\"SESSION_DB_ENDPOINT_READ\":\"sessions-primary.cluster-xyz.us-east-1.rds.amazonaws.com:5432\"}}'",
+        "Rolling restart: kubectl rollout restart deployment/session-service -n session-prod",
+        "Monitor replication lag: watch -n 5 'aws cloudwatch get-metric-statistics --namespace AWS/DynamoDB --metric-name ReplicationLatency --dimensions Name=TableName,Value=user-sessions-global Name=ReceivingRegion,Value=us-east-1 --start-time $(date -u -d \"5 minutes ago\" +%Y-%m-%dT%H:%M:%S) --end-time $(date -u +%Y-%m-%dT%H:%M:%S) --period 60 --statistics Average'",
+        "Once lag < 2s sustained for 10min, switch SESSION_READ_MODE back to REPLICA and restart"
+      ]
+    },
+    "requires_skill": null
+  },
+  {
+    "id": "prod_053",
+    "title": "Checkout service rejecting valid partner-service tokens with 401 errors",
+    "service": "checkout-service",
+    "environment": "production",
+    "category": "authentication",
+    "description": "Checkout service returning 401 Unauthorized for API calls from partner-service fleet. Tokens are valid when issued but rejected by checkout-service. 31% of checkout flows impacted. Issue affects only a subset of checkout pods.",
+    "severity": "P1",
+    "is_edge_case": true,
+    "edge_case_family": "CCF-5",
+    "log_id": "log_prod_053",
+    "metrics": {
+      "error_rate": 0.31,
+      "failed_validations_per_min": 847,
+      "affected_pods": 4
+    },
+    "ground_truth": {
+      "root_cause": "checkout-service fleet (4/6 pods) experiencing NTP clock drift of +7 minutes ahead of real time. partner-service JWTs have 5-minute expiry; checkout-service clock running 7 minutes fast causes it to evaluate freshly-issued tokens as already expired. NTP daemon silently failed on affected pods 3 hours ago.",
+      "severity": "P1",
+      "remediation_steps": [
+        "Identify drifted pods: for pod in $(kubectl get pods -n checkout-prod -l app=checkout-service -o name); do echo -n \"$pod: \"; kubectl exec -n checkout-prod $pod -- python3 -c \"import ntplib; c=ntplib.NTPClient(); r=c.request('ntp.internal.company.com',version=3); print(f'drift={r.offset:.2f}s')\"; done",
+        "Apply immediate JWT tolerance fix: kubectl patch configmap checkout-service-config -n checkout-prod --type=merge -p '{\"data\":{\"JWT_CLOCK_SKEW_TOLERANCE_SECONDS\":\"480\"}}'",
+        "Resync NTP on drifted pods: kubectl get pods -n checkout-prod -l app=checkout-service -o name | xargs -I{} kubectl exec -n checkout-prod {} -- ntpdate -u ntp.internal.company.com",
+        "Restart checkout-service to apply: kubectl rollout restart deployment/checkout-service -n checkout-prod",
+        "After sync confirmed, restore tolerance: kubectl patch configmap checkout-service-config -n checkout-prod --type=merge -p '{\"data\":{\"JWT_CLOCK_SKEW_TOLERANCE_SECONDS\":\"30\"}}'"
+      ]
+    },
+    "requires_skill": null
+  },
+  {
+    "id": "prod_054",
+    "title": "Order service routing requests to decommissioned database endpoints",
+    "service": "order-service",
+    "environment": "production",
+    "category": "configuration",
+    "description": "Order service experiencing 35% database timeout rate on subset of pods. Healthy pods processing normally. Recent infrastructure change updated database routing config but 4/10 pods did not receive the updated configmap. Affected pods routing to decommissioned database shards.",
+    "severity": "P2",
+    "is_edge_case": true,
+    "edge_case_family": "CCF-7",
+    "log_id": "log_prod_054",
+    "metrics": {
+      "timeout_rate": 0.35,
+      "affected_pods": 4,
+      "healthy_pods": 6
+    },
+    "ground_truth": {
+      "root_cause": "Config drift: 4/10 order-service replicas running stale configmap version 2.1.4 (hash: f3a7b91c) vs current 2.1.9 (hash: 8d4e2f6a). Stale config routes to DB shard orders-db-shard-2 which was decommissioned and replaced by orders-db-primary-rr cluster. Drift caused by pod eviction during node maintenance without config-sync webhook re-running on rescheduled pods.",
+      "severity": "P2",
+      "remediation_steps": [
+        "Identify drifted pods: for pod in $(kubectl get pods -n orders-prod -l app=order-service -o name); do hash=$(kubectl exec -n orders-prod $pod -- curl -s localhost:8080/actuator/configprops | jq -r '.config_hash'); echo \"$pod: $hash\"; done",
+        "Force config re-sync: config-sync --namespace=orders-prod --configmap=order-service-config --force --verify",
+        "Annotate to force pod recreation: kubectl patch deployment order-service -n orders-prod --type=json -p '[{\"op\":\"add\",\"path\":\"/spec/template/metadata/annotations/config-sync.company.com~1forced-at\",\"value\":\"'$(date -u +%Y%m%dT%H%M%SZ)'\"}]'",
+        "Rolling restart: kubectl rollout restart deployment/order-service -n orders-prod",
+        "Verify uniform config hash: kubectl get pods -n orders-prod -l app=order-service -o name | xargs -I{} kubectl exec -n orders-prod {} -- curl -s localhost:8080/actuator/configprops | jq -r '.config_hash' | sort | uniq -c"
+      ]
+    },
+    "requires_skill": null
+  }
+]

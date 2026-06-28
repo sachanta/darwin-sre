@@ -22,6 +22,7 @@ class DarwinLoop:
         self.all_results: list[dict] = []
         self.on_event = on_event or (lambda e: None)
         self.run_id = run_id
+        self._darwin_cooldown = False  # prevents re-firing until avg recovers above threshold
 
     def _emit(self, event_type: str, data: dict) -> None:
         self.on_event({"type": event_type, **data})
@@ -107,6 +108,10 @@ class DarwinLoop:
                 self.window.append(scores["composite"])
                 rolling = self._rolling_avg()
 
+                # Clear cooldown once avg recovers above threshold
+                if rolling >= DARWIN_TRIGGER_THRESHOLD:
+                    self._darwin_cooldown = False
+
                 inc_span.set_attribute("output.value", resolution.get("root_cause", "")[:300])
                 inc_span.set_attribute("score.composite", scores["composite"])
                 inc_span.set_attribute("score.rolling_avg", rolling)
@@ -143,7 +148,9 @@ class DarwinLoop:
                 len(self.window) == DARWIN_WINDOW_SIZE
                 and rolling < DARWIN_TRIGGER_THRESHOLD
                 and self.generation < DARWIN_MAX_GENERATIONS
+                and not self._darwin_cooldown
             ):
+                self._darwin_cooldown = True
                 failing_ids = [
                     r["incident"]["id"] for r in self.all_results[-DARWIN_WINDOW_SIZE:]
                 ]

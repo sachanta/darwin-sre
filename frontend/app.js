@@ -2,7 +2,7 @@
 'use strict';
 
 // ── Constants ──────────────────────────────────────────────────────────────
-const THRESHOLD   = 0.85;
+const THRESHOLD   = 0.75;
 const GEN_COLORS  = ['#58a6ff','#3fb950','#bc8cff','#ffa657','#ff7b72','#56d364','#a5d6ff','#f2cc60','#ff9bce'];
 const API         = '';   // same origin
 

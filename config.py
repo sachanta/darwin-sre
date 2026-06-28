@@ -20,9 +20,9 @@ SRE_MODEL = os.environ.get("SRE_MODEL", "anthropic-claude-4.5-sonnet")
 MUTATOR_MODEL = os.environ.get("MUTATOR_MODEL", "anthropic-claude-haiku-4.5")
 JUDGE_MODEL = os.environ.get("JUDGE_MODEL", "gemini-3.5-flash")
 
-DARWIN_TRIGGER_THRESHOLD = float(os.environ.get("DARWIN_TRIGGER_THRESHOLD", "0.85"))
+DARWIN_TRIGGER_THRESHOLD = float(os.environ.get("DARWIN_TRIGGER_THRESHOLD", "0.75"))
 DARWIN_MAX_GENERATIONS = int(os.environ.get("DARWIN_MAX_GENERATIONS", "10"))
-DARWIN_WINDOW_SIZE = int(os.environ.get("DARWIN_WINDOW_SIZE", "3"))
+DARWIN_WINDOW_SIZE = int(os.environ.get("DARWIN_WINDOW_SIZE", "5"))
 
 # Arize AX
 ARIZE_API_KEY = os.environ.get("ARIZE_API_KEY", "")

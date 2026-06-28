@@ -1,0 +1,1528 @@
+[
+  {
+    "id": "train_001",
+    "title": "Payment service database connection pool exhaustion",
+    "description": "Payment processing API started returning 500 errors with database timeout exceptions. The connection pool reached maximum capacity and new requests could not acquire database connections. Error rate spiked to 85% over a 15-minute period.",
+    "service": "payment-service",
+    "environment": "production",
+    "category": "database",
+    "is_edge_case": false,
+    "edge_case_family": null,
+    "metrics": {
+      "error_rate": 85,
+      "db_connection_pool_utilization": 100,
+      "avg_response_time_ms": 30000,
+      "requests_per_second": 450
+    },
+    "ground_truth": {
+      "root_cause": "Database connection pool size was set to 20 connections but traffic increased 3x after marketing campaign launch, causing pool exhaustion and connection timeouts",
+      "severity": "P1",
+      "remediation_steps": [
+        "Increased database connection pool size from 20 to 100",
+        "Added connection pool monitoring alerts at 80% utilization",
+        "Reviewed and optimized long-running queries holding connections"
+      ]
+    },
+    "log_id": "log_train_001",
+    "kb_refs": [
+      "kb_001",
+      "kb_002"
+    ]
+  },
+  {
+    "id": "train_002",
+    "title": "High CPU usage on inventory API causing slow responses",
+    "description": "Inventory API response times increased from 200ms to 8 seconds during peak hours. CPU utilization on all service instances reached 98%. Users reported slow page loads on product listing pages.",
+    "service": "inventory-api",
+    "environment": "production",
+    "category": "performance",
+    "is_edge_case": false,
+    "edge_case_family": null,
+    "metrics": {
+      "cpu_utilization": 98,
+      "p95_latency_ms": 8000,
+      "p50_latency_ms": 5200,
+      "requests_per_second": 1200
+    },
+    "ground_truth": {
+      "root_cause": "Inefficient N+1 query pattern introduced in recent deployment caused inventory service to execute 50+ database queries per request instead of using batch queries",
+      "severity": "P2",
+      "remediation_steps": [
+        "Rolled back to previous version to restore service",
+        "Refactored code to use batch queries with JOIN operations",
+        "Added query performance testing to CI/CD pipeline"
+      ]
+    },
+    "log_id": "log_train_002",
+    "kb_refs": [
+      "kb_003",
+      "kb_007"
+    ]
+  },
+  {
+    "id": "train_003",
+    "title": "Network connectivity lost between auth service and user database",
+    "description": "Authentication requests began failing with network timeout errors. The auth-api service could not reach the user-db instance. All login attempts across the platform failed for 22 minutes.",
+    "service": "auth-api",
+    "environment": "production",
+    "category": "network",
+    "is_edge_case": false,
+    "edge_case_family": null,
+    "metrics": {
+      "error_rate": 100,
+      "network_timeout_count": 3420,
+      "successful_auth_requests": 0,
+      "ping_latency_ms": null
+    },
+    "ground_truth": {
+      "root_cause": "Security group rule was accidentally removed during infrastructure update, blocking TCP port 5432 traffic from auth-api subnet to database subnet",
+      "severity": "P1",
+      "remediation_steps": [
+        "Restored security group rule allowing port 5432 from 10.0.2.0/24 to 10.0.5.0/24",
+        "Verified network connectivity with telnet test",
+        "Implemented infrastructure change approval process requiring peer review"
+      ]
+    },
+    "log_id": "log_train_003",
+    "kb_refs": [
+      "kb_004",
+      "kb_008"
+    ]
+  },
+  {
+    "id": "train_004",
+    "title": "Disk space full on notification service logs volume",
+    "description": "Notification service instances started crashing with disk write errors. The /var/log volume reached 100% capacity. Service restarts failed because application logs could not be written.",
+    "service": "notification-service",
+    "environment": "production",
+    "category": "storage",
+    "is_edge_case": false,
+    "edge_case_family": null,
+    "metrics": {
+      "disk_utilization_percent": 100,
+      "available_disk_mb": 0,
+      "service_crash_count": 12,
+      "log_file_size_gb": 95
+    },
+    "ground_truth": {
+      "root_cause": "Log rotation was disabled during debugging session two weeks ago and never re-enabled, causing debug logs to accumulate and fill the 100GB logs volume",
+      "severity": "P1",
+      "remediation_steps": [
+        "Deleted old log files to free up 80GB of space",
+        "Re-enabled log rotation with 7-day retention policy",
+        "Configured automated disk space alerts at 75% utilization"
+      ]
+    },
+    "log_id": "log_train_004",
+    "kb_refs": [
+      "kb_005",
+      "kb_013"
+    ]
+  },
+  {
+    "id": "train_005",
+    "title": "Order service crash loop due to dependency unavailability",
+    "description": "Order processing service entered crash loop state with all pods repeatedly restarting. Health checks failed because the service could not connect to required upstream pricing-service. No orders were processed for 45 minutes.",
+    "service": "order-service",
+    "environment": "production",
+    "category": "service",
+    "is_edge_case": false,
+    "edge_case_family": null,
+    "metrics": {
+      "pod_restart_count": 47,
+      "healthy_instances": 0,
+      "failed_health_checks": 340,
+      "orders_processed": 0
+    },
+    "ground_truth": {
+      "root_cause": "Pricing-service was scaled down to zero replicas during cost optimization exercise, causing order-service startup dependency check to fail and trigger restart loop",
+      "severity": "P1",
+      "remediation_steps": [
+        "Scaled pricing-service back to minimum 3 replicas",
+        "Modified order-service to gracefully handle missing dependencies with circuit breaker",
+        "Added critical service minimum replica count validation to deployment automation"
+      ]
+    },
+    "log_id": "log_train_005",
+    "kb_refs": [
+      "kb_006",
+      "kb_008"
+    ]
+  },
+  {
+    "id": "train_006",
+    "title": "Incorrect database index causing slow search queries",
+    "description": "Product search functionality degraded significantly with query times exceeding 30 seconds. Database CPU spiked to 95% during search operations. Users reported search timeouts and abandoned sessions.",
+    "service": "search-service",
+    "environment": "production",
+    "category": "database",
+    "is_edge_case": false,
+    "edge_case_family": null,
+    "metrics": {
+      "query_execution_time_ms": 32000,
+      "database_cpu_percent": 95,
+      "slow_query_count": 8900,
+      "search_timeout_rate": 67
+    },
+    "ground_truth": {
+      "root_cause": "Database migration dropped composite index on (category_id, created_at) columns and created separate single-column indexes, causing full table scans on 50M row products table",
+      "severity": "P2",
+      "remediation_steps": [
+        "Created composite index on products(category_id, created_at) with CONCURRENTLY option",
+        "Dropped redundant single-column indexes",
+        "Updated migration review process to include query plan analysis"
+      ]
+    },
+    "log_id": "log_train_006",
+    "kb_refs": [
+      "kb_001",
+      "kb_002"
+    ]
+  },
+  {
+    "id": "train_007",
+    "title": "Incorrect environment variable causing feature flag service failures",
+    "description": "Feature flag service began returning default values for all flags instead of configured values. Multiple features were incorrectly enabled or disabled across the platform. The service logs showed Redis connection failures.",
+    "service": "feature-flag-service",
+    "environment": "production",
+    "category": "configuration",
+    "is_edge_case": false,
+    "edge_case_family": null,
+    "metrics": {
+      "redis_connection_errors": 12000,
+      "cache_hit_rate": 0,
+      "default_flag_responses": 100,
+      "config_reload_failures": 45
+    },
+    "ground_truth": {
+      "root_cause": "REDIS_HOST environment variable was set to incorrect value 'redis-cache.local' instead of 'redis-cache.prod.internal' during deployment, preventing connection to Redis cluster",
+      "severity": "P2",
+      "remediation_steps": [
+        "Corrected REDIS_HOST environment variable to redis-cache.prod.internal",
+        "Redeployed feature-flag-service with correct configuration",
+        "Implemented configuration validation tests in deployment pipeline"
+      ]
+    },
+    "log_id": "log_train_007",
+    "kb_refs": [
+      "kb_014",
+      "kb_021"
+    ]
+  },
+  {
+    "id": "train_008",
+    "title": "API gateway network timeout to recommendation service",
+    "description": "Recommendation widgets failed to load on product pages with gateway timeout errors. The API gateway reported 504 errors when proxying requests to the recommendation-engine service. Network latency between services measured over 10 seconds.",
+    "service": "api-gateway",
+    "environment": "production",
+    "category": "network",
+    "is_edge_case": false,
+    "edge_case_family": null,
+    "metrics": {
+      "http_504_errors": 4200,
+      "upstream_timeout_count": 4200,
+      "network_latency_ms": 12000,
+      "packet_loss_percent": 15
+    },
+    "ground_truth": {
+      "root_cause": "Network ACL rule was misconfigured to rate-limit traffic between API gateway subnet and recommendation service subnet to 10Mbps, causing severe packet loss and timeouts under normal load",
+      "severity": "P2",
+      "remediation_steps": [
+        "Removed rate-limiting rule from network ACL between subnets",
+        "Verified network throughput returned to normal levels",
+        "Documented network ACL change procedures with required testing steps"
+      ]
+    },
+    "log_id": "log_train_008",
+    "kb_refs": [
+      "kb_004",
+      "kb_008"
+    ]
+  },
+  {
+    "id": "train_009",
+    "title": "S3 storage quota exceeded preventing image uploads",
+    "description": "Image upload service began rejecting all uploads with storage quota exceeded errors. Users could not upload product images or profile photos. The S3 bucket reached the configured quota limit of 10TB.",
+    "service": "image-upload-service",
+    "environment": "production",
+    "category": "storage",
+    "is_edge_case": false,
+    "edge_case_family": null,
+    "metrics": {
+      "storage_used_tb": 10.2,
+      "storage_quota_tb": 10,
+      "upload_failure_rate": 100,
+      "failed_uploads": 3400
+    },
+    "ground_truth": {
+      "root_cause": "S3 bucket quota was set to 10TB based on old capacity planning estimates, but actual usage grew beyond limit after Black Friday sales event increased product catalog by 40%",
+      "severity": "P1",
+      "remediation_steps": [
+        "Increased S3 bucket quota to 25TB with auto-scaling enabled",
+        "Implemented lifecycle policy to move images older than 2 years to Glacier",
+        "Set up storage utilization alerts at 70% and 85% thresholds"
+      ]
+    },
+    "log_id": "log_train_009",
+    "kb_refs": [
+      "kb_005",
+      "kb_013"
+    ]
+  },
+  {
+    "id": "train_010",
+    "title": "Memory leak in analytics service causing OOM crashes",
+    "description": "Analytics processing service instances crashed repeatedly with out-of-memory errors. Memory utilization grew linearly from 30% to 100% over 6 hours. Service became unavailable as all instances failed health checks.",
+    "service": "analytics-processor",
+    "environment": "production",
+    "category": "performance",
+    "is_edge_case": false,
+    "edge_case_family": null,
+    "metrics": {
+      "memory_utilization_percent": 100,
+      "oom_kill_count": 8,
+      "heap_size_mb": 8192,
+      "garbage_collection_time_percent": 45
+    },
+    "ground_truth": {
+      "root_cause": "Event handler code stored all processed events in an in-memory cache without eviction policy, causing unbounded memory growth as millions of events accumulated over hours",
+      "severity": "P1",
+      "remediation_steps": [
+        "Deployed hotfix removing in-memory cache in favor of Redis-backed cache",
+        "Implemented LRU eviction policy with 100K item limit",
+        "Added memory leak detection to load testing suite"
+      ]
+    },
+    "log_id": "log_train_010",
+    "kb_refs": [
+      "kb_003",
+      "kb_007"
+    ]
+  },
+  {
+    "id": "train_011",
+    "title": "Database connection pool exhaustion on user-service",
+    "description": "User-service API endpoints began returning 503 errors at 14:23 UTC. Database queries were timing out after 30 seconds. Application logs showed \"unable to acquire database connection\" errors.",
+    "service": "user-service",
+    "environment": "production",
+    "category": "database",
+    "is_edge_case": false,
+    "edge_case_family": null,
+    "metrics": {
+      "error_rate": 87.3,
+      "active_db_connections": 100,
+      "max_db_connections": 100,
+      "p95_latency_ms": 30000
+    },
+    "ground_truth": {
+      "root_cause": "Database connection pool maxed out at 100 connections due to long-running queries not being properly closed in the recent v2.4.1 deployment",
+      "severity": "P1",
+      "remediation_steps": [
+        "Restart user-service instances to reset connection pools",
+        "Deploy hotfix v2.4.2 that properly closes database connections in finally blocks",
+        "Increase connection pool max size to 200 as temporary safeguard"
+      ]
+    },
+    "log_id": "log_train_011",
+    "kb_refs": [
+      "kb_001",
+      "kb_002"
+    ]
+  },
+  {
+    "id": "train_012",
+    "title": "High CPU usage causing slow response times in payment-api",
+    "description": "Payment-api response times increased from 200ms to 5000ms starting at 09:15 UTC. CPU utilization spiked to 95% across all instances. Transaction processing slowed significantly but no requests failed.",
+    "service": "payment-api",
+    "environment": "production",
+    "category": "performance",
+    "is_edge_case": false,
+    "edge_case_family": null,
+    "metrics": {
+      "cpu_utilization": 95,
+      "p95_latency_ms": 5000,
+      "p50_latency_ms": 3200,
+      "requests_per_second": 450
+    },
+    "ground_truth": {
+      "root_cause": "Inefficient regex pattern introduced in fraud detection module causing excessive CPU consumption when validating card numbers",
+      "severity": "P2",
+      "remediation_steps": [
+        "Rollback payment-api to previous version v3.2.1",
+        "Optimize regex pattern using compiled pattern with simpler matching logic",
+        "Add CPU profiling to pre-production testing pipeline"
+      ]
+    },
+    "log_id": "log_train_012",
+    "kb_refs": [
+      "kb_003",
+      "kb_007"
+    ]
+  },
+  {
+    "id": "train_013",
+    "title": "Network connectivity loss between order-service and inventory-db",
+    "description": "Order-service unable to connect to inventory-db starting at 11:42 UTC. All order placement requests failed with connection timeout errors. Health checks showed inventory-db was running but unreachable from order-service pods.",
+    "service": "order-service",
+    "environment": "production",
+    "category": "network",
+    "is_edge_case": false,
+    "edge_case_family": null,
+    "metrics": {
+      "error_rate": 100,
+      "connection_timeout_count": 1847,
+      "network_latency_ms": null,
+      "successful_db_connections": 0
+    },
+    "ground_truth": {
+      "root_cause": "Security group rule accidentally removed during routine AWS cleanup, blocking traffic from order-service subnet to inventory-db on port 5432",
+      "severity": "P1",
+      "remediation_steps": [
+        "Restore security group rule allowing ingress from 10.0.2.0/24 to inventory-db on port 5432",
+        "Verify connectivity by testing manual connection from order-service pod",
+        "Implement infrastructure-as-code validation to prevent manual security group modifications"
+      ]
+    },
+    "log_id": "log_train_013",
+    "kb_refs": [
+      "kb_004",
+      "kb_008"
+    ]
+  },
+  {
+    "id": "train_014",
+    "title": "Disk space exhausted on notification-worker nodes",
+    "description": "Notification-worker pods started crashing with write failures at 16:30 UTC. Logs indicated \"No space left on device\" errors. Message queue backlog grew to over 50,000 pending notifications.",
+    "service": "notification-worker",
+    "environment": "production",
+    "category": "storage",
+    "is_edge_case": false,
+    "edge_case_family": null,
+    "metrics": {
+      "disk_usage_percent": 100,
+      "available_disk_gb": 0,
+      "pod_restart_count": 23,
+      "queue_depth": 52341
+    },
+    "ground_truth": {
+      "root_cause": "Log rotation not configured properly, causing application logs to fill the 50GB root volume over 3 days of operation",
+      "severity": "P1",
+      "remediation_steps": [
+        "Manually delete old log files from /var/log/app to free up space",
+        "Configure logrotate to rotate logs daily and keep only 7 days of history",
+        "Increase root volume size to 100GB and implement disk space alerting at 80% threshold"
+      ]
+    },
+    "log_id": "log_train_014",
+    "kb_refs": [
+      "kb_005",
+      "kb_013"
+    ]
+  },
+  {
+    "id": "train_015",
+    "title": "Auth-api service crash loop after deployment",
+    "description": "Auth-api pods entered crash loop immediately after v4.1.0 deployment at 13:00 UTC. All authentication requests failed. Pod logs showed Java OutOfMemoryError exceptions during startup.",
+    "service": "auth-api",
+    "environment": "production",
+    "category": "service",
+    "is_edge_case": false,
+    "edge_case_family": null,
+    "metrics": {
+      "pod_restart_count": 47,
+      "memory_usage_mb": 2048,
+      "memory_limit_mb": 2048,
+      "successful_startups": 0
+    },
+    "ground_truth": {
+      "root_cause": "Memory limit of 2GB insufficient for new JWT token cache feature that loads all active sessions into memory on startup, requiring 3.5GB",
+      "severity": "P1",
+      "remediation_steps": [
+        "Rollback to auth-api v4.0.3 immediately",
+        "Update Kubernetes deployment to set memory limit to 4GB",
+        "Modify JWT cache implementation to use lazy loading instead of eager loading"
+      ]
+    },
+    "log_id": "log_train_015",
+    "kb_refs": [
+      "kb_006",
+      "kb_008"
+    ]
+  },
+  {
+    "id": "train_016",
+    "title": "Incorrect database credentials after configuration update",
+    "description": "Search-service failed to authenticate to elasticsearch cluster starting at 10:20 UTC. All search queries returned 500 errors. Application logs showed \"authentication failed\" errors when connecting to database.",
+    "service": "search-service",
+    "environment": "production",
+    "category": "configuration",
+    "is_edge_case": false,
+    "edge_case_family": null,
+    "metrics": {
+      "error_rate": 100,
+      "authentication_failures": 3421,
+      "successful_queries": 0,
+      "p95_latency_ms": 150
+    },
+    "ground_truth": {
+      "root_cause": "ConfigMap update deployed with incorrect elasticsearch password referencing staging credentials instead of production credentials",
+      "severity": "P1",
+      "remediation_steps": [
+        "Update ConfigMap with correct production elasticsearch password from secrets vault",
+        "Restart search-service pods to pick up corrected configuration",
+        "Implement configuration validation checks in CI/CD pipeline to catch credential mismatches"
+      ]
+    },
+    "log_id": "log_train_016",
+    "kb_refs": [
+      "kb_014",
+      "kb_021"
+    ]
+  },
+  {
+    "id": "train_017",
+    "title": "Deadlock causing database transaction timeouts",
+    "description": "Checkout-service experiencing frequent transaction timeout errors starting at 08:45 UTC. Approximately 15% of checkout requests failing. Database monitoring showed multiple blocked queries waiting on locks.",
+    "service": "checkout-service",
+    "environment": "production",
+    "category": "database",
+    "is_edge_case": false,
+    "edge_case_family": null,
+    "metrics": {
+      "error_rate": 15.2,
+      "deadlock_count": 89,
+      "average_lock_wait_time_ms": 8500,
+      "transaction_timeout_count": 234
+    },
+    "ground_truth": {
+      "root_cause": "Database migration deployed with missing index on orders.user_id column, causing full table scans that hold locks longer and create deadlock conditions with concurrent updates",
+      "severity": "P2",
+      "remediation_steps": [
+        "Create missing index on orders.user_id column immediately",
+        "Kill long-running blocked queries to clear existing deadlocks",
+        "Add index existence validation to database migration testing process"
+      ]
+    },
+    "log_id": "log_train_017",
+    "kb_refs": [
+      "kb_001",
+      "kb_002"
+    ]
+  },
+  {
+    "id": "train_018",
+    "title": "API gateway routing misconfiguration",
+    "description": "Mobile app users unable to access profile endpoints starting at 15:10 UTC. Requests to /api/v2/profile/* returning 404 errors. Backend profile-service health checks passing normally and receiving no traffic.",
+    "service": "api-gateway",
+    "environment": "production",
+    "category": "configuration",
+    "is_edge_case": false,
+    "edge_case_family": null,
+    "metrics": {
+      "error_rate": 100,
+      "http_404_count": 2847,
+      "backend_requests": 0,
+      "gateway_requests": 2847
+    },
+    "ground_truth": {
+      "root_cause": "Nginx configuration update removed upstream route for /api/v2/profile path, causing all profile requests to hit default 404 handler instead of being proxied to profile-service",
+      "severity": "P1",
+      "remediation_steps": [
+        "Revert nginx.conf to previous version with profile-service upstream configuration",
+        "Reload nginx configuration on all api-gateway instances",
+        "Add automated routing tests to verify all critical paths before deploying gateway configuration changes"
+      ]
+    },
+    "log_id": "log_train_018",
+    "kb_refs": [
+      "kb_014",
+      "kb_021"
+    ]
+  },
+  {
+    "id": "train_019",
+    "title": "Network packet loss between availability zones",
+    "description": "Intermittent failures across all services starting at 12:05 UTC with 3-5% of requests timing out. Cross-AZ service communication showing increased latency and packet loss. Single-AZ requests performing normally.",
+    "service": "multi-region-lb",
+    "environment": "production",
+    "category": "network",
+    "is_edge_case": false,
+    "edge_case_family": null,
+    "metrics": {
+      "packet_loss_percent": 4.2,
+      "cross_az_latency_ms": 250,
+      "same_az_latency_ms": 12,
+      "timeout_rate": 3.8
+    },
+    "ground_truth": {
+      "root_cause": "AWS networking issue causing packet loss on transit gateway between us-east-1a and us-east-1b availability zones, confirmed by AWS support ticket",
+      "severity": "P2",
+      "remediation_steps": [
+        "Temporarily disable routing to us-east-1b availability zone in load balancer",
+        "Scale up capacity in us-east-1a and us-east-1c to handle full traffic load",
+        "Monitor AWS health dashboard and re-enable us-east-1b once AWS resolves transit gateway issue"
+      ]
+    },
+    "log_id": "log_train_019",
+    "kb_refs": [
+      "kb_004",
+      "kb_008"
+    ]
+  },
+  {
+    "id": "train_020",
+    "title": "Redis memory eviction causing cache misses",
+    "description": "Analytics-service response times degraded from 100ms to 2500ms starting at 07:30 UTC. Cache hit rate dropped from 95% to 12%. Redis memory usage at maximum configured limit with frequent evictions occurring.",
+    "service": "analytics-service",
+    "environment": "production",
+    "category": "storage",
+    "is_edge_case": false,
+    "edge_case_family": null,
+    "metrics": {
+      "cache_hit_rate": 12.4,
+      "redis_memory_usage_percent": 100,
+      "evicted_keys_per_second": 450,
+      "p95_latency_ms": 2500
+    },
+    "ground_truth": {
+      "root_cause": "Redis maxmemory limit set to 4GB insufficient for new dashboard feature that caches 30 days of analytics data instead of previous 7 days, requiring 12GB",
+      "severity": "P2",
+      "remediation_steps": [
+        "Increase Redis maxmemory limit to 16GB to accommodate 30-day cache requirement",
+        "Flush existing cache and allow it to rebuild with new memory allocation",
+        "Implement cache TTL reduction from 30 days to 14 days to balance performance and memory usage"
+      ]
+    },
+    "log_id": "log_train_020",
+    "kb_refs": [
+      "kb_005",
+      "kb_013"
+    ]
+  },
+  {
+    "id": "train_021",
+    "title": "Database connection pool exhaustion",
+    "description": "The order-service began returning 500 errors at 14:23 UTC with timeouts when attempting database operations. Application logs showed \"unable to acquire connection from pool\" errors. Database CPU and memory remained normal but connection count maxed at 100.",
+    "service": "order-service",
+    "environment": "production",
+    "category": "database",
+    "is_edge_case": false,
+    "edge_case_family": null,
+    "metrics": {
+      "error_rate_percent": 87,
+      "db_connection_pool_active": 100,
+      "db_connection_pool_max": 100,
+      "response_time_p99_ms": 30000
+    },
+    "ground_truth": {
+      "root_cause": "Database connection pool maximum size set to 100 was insufficient for current traffic load of 5000 requests per minute, causing connection starvation",
+      "severity": "P1",
+      "remediation_steps": [
+        "Increase connection pool max size from 100 to 300 in application configuration",
+        "Deploy updated configuration to production instances",
+        "Monitor connection pool utilization to ensure headroom remains above 20%"
+      ]
+    },
+    "log_id": "log_train_021",
+    "kb_refs": [
+      "kb_001",
+      "kb_002"
+    ]
+  },
+  {
+    "id": "train_022",
+    "title": "API response time degradation due to missing index",
+    "description": "The user-search-api experienced severe performance degradation with P95 latency jumping from 200ms to 8500ms. Database query logs revealed full table scans on the users table. Traffic patterns were normal with no spike in request volume.",
+    "service": "user-search-api",
+    "environment": "production",
+    "category": "performance",
+    "is_edge_case": false,
+    "edge_case_family": null,
+    "metrics": {
+      "response_time_p95_ms": 8500,
+      "response_time_p99_ms": 12000,
+      "db_query_time_avg_ms": 7800,
+      "requests_per_second": 450
+    },
+    "ground_truth": {
+      "root_cause": "Database index on users.email column was accidentally dropped during a schema migration, causing all email lookup queries to perform full table scans on a 12M row table",
+      "severity": "P2",
+      "remediation_steps": [
+        "Recreate missing index on users.email column: CREATE INDEX idx_users_email ON users(email)",
+        "Wait for index build completion (approximately 15 minutes)",
+        "Verify query execution plans now use the index"
+      ]
+    },
+    "log_id": "log_train_022",
+    "kb_refs": [
+      "kb_003",
+      "kb_007"
+    ]
+  },
+  {
+    "id": "train_023",
+    "title": "Network packet loss between availability zones",
+    "description": "Services in us-east-1a experienced intermittent connectivity issues when communicating with services in us-east-1b. TCP retransmit rates increased to 15% and connection timeouts were frequent. Services within the same AZ communicated normally.",
+    "service": "payment-gateway",
+    "environment": "production",
+    "category": "network",
+    "is_edge_case": false,
+    "edge_case_family": null,
+    "metrics": {
+      "packet_loss_percent": 12,
+      "tcp_retransmit_rate_percent": 15,
+      "cross_az_latency_ms": 450,
+      "connection_timeout_count": 234
+    },
+    "ground_truth": {
+      "root_cause": "AWS network degradation between us-east-1a and us-east-1b availability zones caused by underlying infrastructure issue, confirmed via AWS Health Dashboard",
+      "severity": "P1",
+      "remediation_steps": [
+        "Redirect traffic from us-east-1a instances to us-east-1c using load balancer configuration",
+        "Monitor AWS Health Dashboard for resolution of underlying network issue",
+        "Restore original traffic distribution once AWS confirms issue resolution"
+      ]
+    },
+    "log_id": "log_train_023",
+    "kb_refs": [
+      "kb_004",
+      "kb_008"
+    ]
+  },
+  {
+    "id": "train_024",
+    "title": "Disk space exhaustion on log volume",
+    "description": "The analytics-processor service crashed at 03:42 UTC with write failures. Investigation showed the /var/log mount point at 100% capacity with 0 bytes free. Application logs had grown to consume all available space.",
+    "service": "analytics-processor",
+    "environment": "production",
+    "category": "storage",
+    "is_edge_case": false,
+    "edge_case_family": null,
+    "metrics": {
+      "disk_usage_percent": 100,
+      "disk_free_bytes": 0,
+      "disk_total_gb": 50,
+      "log_file_size_gb": 48
+    },
+    "ground_truth": {
+      "root_cause": "Log rotation was disabled in the logrotate configuration, causing application logs to grow unbounded until filling the entire 50GB log volume",
+      "severity": "P1",
+      "remediation_steps": [
+        "Manually delete old log files to free up disk space: rm /var/log/analytics-processor/*.log.2024-01-*",
+        "Enable and configure logrotate with daily rotation and 7-day retention",
+        "Restart analytics-processor service"
+      ]
+    },
+    "log_id": "log_train_024",
+    "kb_refs": [
+      "kb_005",
+      "kb_013"
+    ]
+  },
+  {
+    "id": "train_025",
+    "title": "Service crash loop due to memory leak",
+    "description": "The notification-service began crash looping every 15 minutes starting at 09:15 UTC. Memory usage graphs showed linear growth from 2GB to 8GB before OOM killer terminated the process. Heap dumps revealed unbounded cache growth.",
+    "service": "notification-service",
+    "environment": "production",
+    "category": "service",
+    "is_edge_case": false,
+    "edge_case_family": null,
+    "metrics": {
+      "memory_usage_gb": 8.2,
+      "memory_limit_gb": 8,
+      "oom_kill_count": 12,
+      "uptime_minutes": 14
+    },
+    "ground_truth": {
+      "root_cause": "In-memory cache for user preferences had no eviction policy or size limit, causing memory consumption to grow linearly with unique user access until exceeding the 8GB container limit",
+      "severity": "P1",
+      "remediation_steps": [
+        "Deploy hotfix implementing LRU cache with max size of 100000 entries and TTL of 1 hour",
+        "Restart all notification-service instances",
+        "Monitor memory usage to confirm stabilization below 4GB"
+      ]
+    },
+    "log_id": "log_train_025",
+    "kb_refs": [
+      "kb_006",
+      "kb_008"
+    ]
+  },
+  {
+    "id": "train_026",
+    "title": "Incorrect database credentials after secret rotation",
+    "description": "The inventory-api started failing all requests at 11:00 UTC with authentication errors to the PostgreSQL database. This coincided with the scheduled automated secret rotation. Connection attempts showed \"password authentication failed\" errors.",
+    "service": "inventory-api",
+    "environment": "production",
+    "category": "configuration",
+    "is_edge_case": false,
+    "edge_case_family": null,
+    "metrics": {
+      "error_rate_percent": 100,
+      "db_connection_errors": 8934,
+      "http_status_500_count": 8934,
+      "requests_per_second": 820
+    },
+    "ground_truth": {
+      "root_cause": "Automated secret rotation updated database password in AWS Secrets Manager but the inventory-api configuration was still reading from a hardcoded environment variable instead of the secrets manager",
+      "severity": "P1",
+      "remediation_steps": [
+        "Update inventory-api environment configuration to read DB_PASSWORD from AWS Secrets Manager",
+        "Restart inventory-api pods to pick up new configuration",
+        "Verify database connections succeed and error rate returns to 0%"
+      ]
+    },
+    "log_id": "log_train_026",
+    "kb_refs": [
+      "kb_014",
+      "kb_021"
+    ]
+  },
+  {
+    "id": "train_027",
+    "title": "Database replica lag causing stale reads",
+    "description": "Users reported seeing outdated data in the product-catalog-service, with changes taking 5-10 minutes to appear. Monitoring showed the read replica was lagging 8 minutes behind the primary database. Replication lag metrics confirmed significant delay.",
+    "service": "product-catalog-service",
+    "environment": "production",
+    "category": "database",
+    "is_edge_case": false,
+    "edge_case_family": null,
+    "metrics": {
+      "replication_lag_seconds": 480,
+      "replica_transactions_behind": 125000,
+      "read_queries_per_second": 3200,
+      "replica_cpu_percent": 95
+    },
+    "ground_truth": {
+      "root_cause": "Read replica instance type (db.t3.medium) was undersized for the query load, causing CPU saturation at 95% and preventing the replica from keeping up with primary write volume",
+      "severity": "P2",
+      "remediation_steps": [
+        "Scale up read replica from db.t3.medium to db.r5.xlarge",
+        "Wait for replica to catch up to primary (lag < 1 second)",
+        "Resume normal read traffic distribution to replica"
+      ]
+    },
+    "log_id": "log_train_027",
+    "kb_refs": [
+      "kb_001",
+      "kb_002"
+    ]
+  },
+  {
+    "id": "train_028",
+    "title": "CDN cache serving 404 errors after origin change",
+    "description": "The media-delivery-service began returning 404 errors for 60% of asset requests at 16:20 UTC. CDN logs showed cache HITs returning 404s while cache MISSes correctly fetched from origin. Recent deployment changed the origin URL structure.",
+    "service": "media-delivery-service",
+    "environment": "production",
+    "category": "network",
+    "is_edge_case": false,
+    "edge_case_family": null,
+    "metrics": {
+      "error_rate_percent": 62,
+      "http_status_404_count": 45000,
+      "cdn_cache_hit_ratio": 0.85,
+      "requests_per_second": 12000
+    },
+    "ground_truth": {
+      "root_cause": "Deployment changed S3 bucket path structure from /media/ to /assets/ but CDN cache still served cached responses with old paths that now returned 404 from origin",
+      "severity": "P1",
+      "remediation_steps": [
+        "Purge all cached content from CDN for media-delivery-service domain",
+        "Wait for cache purge to propagate across all edge locations (5 minutes)",
+        "Verify new requests fetch from updated origin paths and return 200 status"
+      ]
+    },
+    "log_id": "log_train_028",
+    "kb_refs": [
+      "kb_004",
+      "kb_008"
+    ]
+  },
+  {
+    "id": "train_029",
+    "title": "EBS volume IOPS throttling causing slow writes",
+    "description": "The transaction-processor service experienced severe write latency with database commit times exceeding 5 seconds. CloudWatch metrics showed EBS volume hitting IOPS limits with sustained throttling. Volume burst balance was depleted to 0%.",
+    "service": "transaction-processor",
+    "environment": "production",
+    "category": "storage",
+    "is_edge_case": false,
+    "edge_case_family": null,
+    "metrics": {
+      "ebs_burst_balance_percent": 0,
+      "ebs_write_latency_ms": 5200,
+      "iops_limit": 3000,
+      "iops_actual": 3000,
+      "volume_queue_length": 127
+    },
+    "ground_truth": {
+      "root_cause": "EBS gp2 volume with 100GB capacity provided only 300 baseline IOPS, and burst balance was depleted due to sustained write traffic of 3000 IOPS during month-end batch processing",
+      "severity": "P2",
+      "remediation_steps": [
+        "Convert EBS volume from gp2 to gp3 with provisioned 5000 IOPS",
+        "Wait for volume modification to complete (no downtime required)",
+        "Monitor write latency returns to under 10ms"
+      ]
+    },
+    "log_id": "log_train_029",
+    "kb_refs": [
+      "kb_005",
+      "kb_013"
+    ]
+  },
+  {
+    "id": "train_030",
+    "title": "Feature flag misconfiguration disabled checkout",
+    "description": "The checkout-service began rejecting all purchase attempts at 13:45 UTC with \"feature not available\" errors. Investigation revealed the enable_checkout feature flag was accidentally set to false. No code changes or deployments occurred at that time.",
+    "service": "checkout-service",
+    "environment": "production",
+    "category": "configuration",
+    "is_edge_case": false,
+    "edge_case_family": null,
+    "metrics": {
+      "error_rate_percent": 100,
+      "successful_checkouts": 0,
+      "feature_flag_enabled": false,
+      "requests_per_minute": 1250
+    },
+    "ground_truth": {
+      "root_cause": "Engineer accidentally toggled the enable_checkout feature flag to false in the production environment while testing the flag system, immediately disabling all checkout functionality",
+      "severity": "P1",
+      "remediation_steps": [
+        "Set enable_checkout feature flag back to true in LaunchDarkly dashboard",
+        "Verify checkout requests begin succeeding immediately",
+        "Implement additional confirmation prompt for production feature flag changes"
+      ]
+    },
+    "log_id": "log_train_030",
+    "kb_refs": [
+      "kb_014",
+      "kb_021"
+    ]
+  },
+  {
+    "id": "train_031",
+    "title": "PostgreSQL connection pool exhaustion",
+    "description": "The payment-service started returning 500 errors at 14:23 UTC with database connection timeout messages. Users were unable to complete checkout transactions. Error logs showed 'FATAL: remaining connection slots are reserved for non-replication superuser connections'.",
+    "service": "payment-service",
+    "environment": "production",
+    "category": "database",
+    "is_edge_case": false,
+    "edge_case_family": null,
+    "metrics": {
+      "active_db_connections": 100,
+      "max_db_connections": 100,
+      "error_rate_percent": 87.3,
+      "p99_latency_ms": 30000
+    },
+    "ground_truth": {
+      "root_cause": "PostgreSQL max_connections limit of 100 was reached due to connection leak in payment-service v2.4.1 where connections were not properly released after failed transaction retries",
+      "severity": "P1",
+      "remediation_steps": [
+        "Rolled back payment-service to v2.4.0",
+        "Restarted PostgreSQL to clear stale connections",
+        "Increased max_connections to 200 as temporary measure",
+        "Created ticket to fix connection leak in v2.4.2"
+      ]
+    },
+    "log_id": "log_train_031",
+    "kb_refs": [
+      "kb_001",
+      "kb_002"
+    ]
+  },
+  {
+    "id": "train_032",
+    "title": "API gateway response time degradation",
+    "description": "The api-gateway experienced severe latency increases starting at 09:15 UTC, with p95 response times jumping from 200ms to 8500ms. Customer complaints increased by 340% within 15 minutes. CPU utilization remained normal but memory usage spiked to 94%.",
+    "service": "api-gateway",
+    "environment": "production",
+    "category": "performance",
+    "is_edge_case": false,
+    "edge_case_family": null,
+    "metrics": {
+      "p95_latency_ms": 8500,
+      "p99_latency_ms": 12300,
+      "memory_usage_percent": 94,
+      "cpu_usage_percent": 42,
+      "request_rate": 4500
+    },
+    "ground_truth": {
+      "root_cause": "Memory leak in api-gateway v3.2.0 caused by unbounded cache growth in the rate limiting module, which was not evicting expired entries",
+      "severity": "P1",
+      "remediation_steps": [
+        "Restarted api-gateway instances in rolling fashion",
+        "Rolled back to v3.1.8 which had proper cache eviction",
+        "Added memory usage alerts at 80% threshold",
+        "Implemented cache size limits in v3.2.1"
+      ]
+    },
+    "log_id": "log_train_032",
+    "kb_refs": [
+      "kb_003",
+      "kb_007"
+    ]
+  },
+  {
+    "id": "train_033",
+    "title": "Network partition between availability zones",
+    "description": "Services in us-east-1b lost connectivity to Redis cluster in us-east-1a at 11:42 UTC. The inventory-service reported cache miss rates of 100% and fell back to direct database queries. Network timeouts appeared in logs for cross-AZ traffic.",
+    "service": "inventory-service",
+    "environment": "production",
+    "category": "network",
+    "is_edge_case": false,
+    "edge_case_family": null,
+    "metrics": {
+      "cache_miss_rate_percent": 100,
+      "network_timeout_count": 2847,
+      "database_query_rate": 8900,
+      "p50_latency_ms": 450
+    },
+    "ground_truth": {
+      "root_cause": "AWS network connectivity issue between us-east-1a and us-east-1b availability zones caused by underlying infrastructure problem (confirmed by AWS support ticket)",
+      "severity": "P2",
+      "remediation_steps": [
+        "Verified AWS Health Dashboard showed ongoing network event",
+        "Failed over Redis reads to replica in us-east-1c",
+        "Scaled up database read replicas to handle increased load",
+        "AWS resolved underlying network issue after 47 minutes"
+      ]
+    },
+    "log_id": "log_train_033",
+    "kb_refs": [
+      "kb_004",
+      "kb_008"
+    ]
+  },
+  {
+    "id": "train_034",
+    "title": "EBS volume capacity full on logging service",
+    "description": "The logging-aggregator service stopped ingesting logs at 03:18 UTC. Disk write operations failed with 'No space left on device' errors. The /var/log partition reached 100% capacity with 500GB used.",
+    "service": "logging-aggregator",
+    "environment": "production",
+    "category": "storage",
+    "is_edge_case": false,
+    "edge_case_family": null,
+    "metrics": {
+      "disk_usage_percent": 100,
+      "disk_capacity_gb": 500,
+      "log_ingestion_rate": 0,
+      "inode_usage_percent": 67
+    },
+    "ground_truth": {
+      "root_cause": "Log rotation policy failed to execute due to misconfigured logrotate cron job, causing uncompressed logs to accumulate and fill the 500GB EBS volume",
+      "severity": "P2",
+      "remediation_steps": [
+        "Manually deleted logs older than 7 days to free 280GB",
+        "Fixed logrotate cron job scheduling (was set to wrong timezone)",
+        "Resized EBS volume to 1TB",
+        "Implemented disk usage alerting at 85% threshold"
+      ]
+    },
+    "log_id": "log_train_034",
+    "kb_refs": [
+      "kb_005",
+      "kb_013"
+    ]
+  },
+  {
+    "id": "train_035",
+    "title": "User-service container crashes with OOMKilled",
+    "description": "The user-service pods began crash-looping at 16:34 UTC with OOMKilled status. Kubernetes restarted containers every 2-3 minutes. User authentication requests failed intermittently during container restarts.",
+    "service": "user-service",
+    "environment": "production",
+    "category": "service",
+    "is_edge_case": false,
+    "edge_case_family": null,
+    "metrics": {
+      "pod_restart_count": 28,
+      "memory_limit_mb": 512,
+      "memory_usage_mb": 512,
+      "error_rate_percent": 34.2,
+      "active_users": 12400
+    },
+    "ground_truth": {
+      "root_cause": "Kubernetes memory limit set to 512MB was insufficient for user-service after v4.1.0 deployment which introduced in-memory session caching without proper size limits",
+      "severity": "P1",
+      "remediation_steps": [
+        "Increased memory limit to 2GB for user-service pods",
+        "Added memory request of 1GB to ensure QoS",
+        "Implemented session cache size limit of 10000 entries",
+        "Added memory usage monitoring and alerting"
+      ]
+    },
+    "log_id": "log_train_035",
+    "kb_refs": [
+      "kb_006",
+      "kb_008"
+    ]
+  },
+  {
+    "id": "train_036",
+    "title": "Incorrect CORS configuration blocks mobile app",
+    "description": "Mobile application users reported inability to login starting at 10:05 UTC. Browser console showed CORS policy errors blocking requests from the mobile API domain. Web application users were unaffected.",
+    "service": "auth-api",
+    "environment": "production",
+    "category": "configuration",
+    "is_edge_case": false,
+    "edge_case_family": null,
+    "metrics": {
+      "mobile_error_rate_percent": 100,
+      "web_error_rate_percent": 0,
+      "cors_error_count": 15680,
+      "blocked_requests": 15680
+    },
+    "ground_truth": {
+      "root_cause": "Configuration deployment removed 'api.mobile.example.com' from allowed CORS origins list in auth-api, leaving only 'app.example.com' which broke mobile client authentication",
+      "severity": "P1",
+      "remediation_steps": [
+        "Reverted auth-api configuration to previous version",
+        "Added 'api.mobile.example.com' back to CORS whitelist",
+        "Implemented configuration validation tests for CORS settings",
+        "Added smoke tests for mobile authentication in CI/CD pipeline"
+      ]
+    },
+    "log_id": "log_train_036",
+    "kb_refs": [
+      "kb_014",
+      "kb_021"
+    ]
+  },
+  {
+    "id": "train_037",
+    "title": "MongoDB replica set primary election loop",
+    "description": "The order-db MongoDB cluster experienced continuous primary election cycles starting at 13:27 UTC. Write operations failed with 'no primary available' errors. The cluster oscillated between primaries every 30-45 seconds.",
+    "service": "order-db",
+    "environment": "production",
+    "category": "database",
+    "is_edge_case": false,
+    "edge_case_family": null,
+    "metrics": {
+      "primary_elections": 42,
+      "write_error_rate_percent": 78.5,
+      "replication_lag_seconds": 0,
+      "election_timeout_ms": 10000
+    },
+    "ground_truth": {
+      "root_cause": "Network latency between MongoDB replica set members exceeded election timeout threshold due to misconfigured network ACL that added 8-12 seconds of latency to inter-node heartbeat packets",
+      "severity": "P1",
+      "remediation_steps": [
+        "Identified incorrect network ACL rule added during security review",
+        "Removed ACL rule causing packet inspection delays",
+        "Verified heartbeat latency returned to <50ms",
+        "Increased election timeout from 10s to 30s as safety margin"
+      ]
+    },
+    "log_id": "log_train_037",
+    "kb_refs": [
+      "kb_001",
+      "kb_002"
+    ]
+  },
+  {
+    "id": "train_038",
+    "title": "High CPU utilization on search-service",
+    "description": "The search-service experienced CPU utilization sustained at 98-100% starting at 08:12 UTC. Search query response times increased from 150ms to 6000ms. Auto-scaling triggered but new instances also immediately hit 100% CPU.",
+    "service": "search-service",
+    "environment": "production",
+    "category": "performance",
+    "is_edge_case": false,
+    "edge_case_family": null,
+    "metrics": {
+      "cpu_usage_percent": 99,
+      "p95_latency_ms": 6000,
+      "instance_count": 12,
+      "query_rate": 850,
+      "slow_query_count": 687
+    },
+    "ground_truth": {
+      "root_cause": "Inefficient regex pattern in search query parser introduced in v2.8.0 caused catastrophic backtracking on certain search terms, consuming excessive CPU cycles",
+      "severity": "P2",
+      "remediation_steps": [
+        "Rolled back search-service to v2.7.9",
+        "Identified problematic regex pattern in code review",
+        "Rewrote regex using non-backtracking patterns",
+        "Added query execution time limits of 500ms"
+      ]
+    },
+    "log_id": "log_train_038",
+    "kb_refs": [
+      "kb_003",
+      "kb_007"
+    ]
+  },
+  {
+    "id": "train_039",
+    "title": "Service mesh mTLS certificate expiration",
+    "description": "Inter-service communication failed across the entire platform at 00:00 UTC. All services reported TLS handshake failures when attempting to communicate. The notification-service, email-service, and 14 other services became unreachable.",
+    "service": "service-mesh",
+    "environment": "production",
+    "category": "network",
+    "is_edge_case": false,
+    "edge_case_family": null,
+    "metrics": {
+      "tls_handshake_errors": 48920,
+      "service_mesh_success_rate_percent": 0,
+      "certificate_validity_days": -1,
+      "affected_services": 16
+    },
+    "ground_truth": {
+      "root_cause": "Istio service mesh root CA certificate expired at midnight UTC due to default 1-year expiration and failure of automated certificate rotation job which was disabled during maintenance 3 weeks prior",
+      "severity": "P1",
+      "remediation_steps": [
+        "Generated new root CA certificate with 10-year expiration",
+        "Restarted Istio control plane components",
+        "Rolled all service mesh sidecars to pick up new certificates",
+        "Re-enabled and verified automated certificate rotation job",
+        "Added certificate expiration monitoring with 30-day warning"
+      ]
+    },
+    "log_id": "log_train_039",
+    "kb_refs": [
+      "kb_004",
+      "kb_008"
+    ]
+  },
+  {
+    "id": "train_040",
+    "title": "S3 bucket lifecycle policy deleted active data",
+    "description": "The media-service reported 404 errors for recently uploaded images starting at 05:30 UTC. Approximately 23,000 image files uploaded in the past 48 hours were missing from S3. User profile images and product photos were broken.",
+    "service": "media-service",
+    "environment": "production",
+    "category": "storage",
+    "is_edge_case": false,
+    "edge_case_family": null,
+    "metrics": {
+      "missing_files": 23000,
+      "s3_404_errors": 89400,
+      "affected_time_range_hours": 48,
+      "error_rate_percent": 67.8
+    },
+    "ground_truth": {
+      "root_cause": "S3 lifecycle policy was incorrectly configured to delete objects with 'temp-' prefix after 2 days, but recent code change accidentally prefixed all uploads with 'temp-' instead of only temporary files",
+      "severity": "P1",
+      "remediation_steps": [
+        "Disabled S3 lifecycle policy immediately",
+        "Restored deleted objects from S3 versioning (versioning was enabled)",
+        "Fixed media-service code to only use 'temp-' prefix for actual temporary files",
+        "Updated lifecycle policy to be more specific with additional tag requirements",
+        "Implemented pre-upload validation to prevent 'temp-' prefix on permanent files"
+      ]
+    },
+    "log_id": "log_train_040",
+    "kb_refs": [
+      "kb_005",
+      "kb_013"
+    ]
+  },
+  {
+    "id": "train_041",
+    "title": "Payment Service Database Connection Pool Exhaustion",
+    "description": "Payment service began returning 500 errors to all checkout requests at 14:23 UTC. Database connection attempts were timing out after 30 seconds. Error rate jumped from 0.1% to 98% within 2 minutes.",
+    "service": "payment-service",
+    "environment": "production",
+    "category": "database",
+    "is_edge_case": false,
+    "edge_case_family": null,
+    "metrics": {
+      "error_rate": 98,
+      "db_connection_pool_active": 100,
+      "db_connection_pool_max": 100,
+      "p95_latency_ms": 30000
+    },
+    "ground_truth": {
+      "root_cause": "Database connection pool exhausted due to max_connections set to 100 while application pool size was configured for 150 connections across all instances",
+      "severity": "P1",
+      "remediation_steps": [
+        "Increase database max_connections parameter from 100 to 200",
+        "Restart database instance to apply new connection limit",
+        "Verify connection pool utilization returns to normal levels",
+        "Update application configuration to align pool sizes with database limits"
+      ]
+    },
+    "log_id": "log_train_041",
+    "kb_refs": [
+      "kb_001",
+      "kb_002"
+    ]
+  },
+  {
+    "id": "train_042",
+    "title": "Authentication API Slow Response Times",
+    "description": "Auth API experienced degraded performance with response times increasing from 150ms to 4500ms. Users reported slow login times and session validation delays. No errors were returned but throughput decreased by 60%.",
+    "service": "auth-api",
+    "environment": "production",
+    "category": "performance",
+    "is_edge_case": false,
+    "edge_case_family": null,
+    "metrics": {
+      "p95_latency_ms": 4500,
+      "p50_latency_ms": 3200,
+      "cpu_utilization": 89,
+      "requests_per_second": 420
+    },
+    "ground_truth": {
+      "root_cause": "Missing database index on users.last_login_timestamp column causing full table scans on 2.3M row table during session validation queries",
+      "severity": "P2",
+      "remediation_steps": [
+        "Create index on users.last_login_timestamp column using CREATE INDEX CONCURRENTLY",
+        "Monitor query execution plans to confirm index usage",
+        "Verify p95 latency returns below 200ms threshold",
+        "Add index monitoring to prevent future regressions"
+      ]
+    },
+    "log_id": "log_train_042",
+    "kb_refs": [
+      "kb_003",
+      "kb_007"
+    ]
+  },
+  {
+    "id": "train_043",
+    "title": "Order Service Network Connectivity Loss to Inventory DB",
+    "description": "Order service lost network connectivity to inventory-db at 09:15 UTC resulting in complete order placement failures. TCP connections were timing out and no packets were reaching the database subnet. All 6 order service instances were affected simultaneously.",
+    "service": "order-service",
+    "environment": "production",
+    "category": "network",
+    "is_edge_case": false,
+    "edge_case_family": null,
+    "metrics": {
+      "error_rate": 100,
+      "network_timeout_count": 1847,
+      "successful_db_connections": 0,
+      "packet_loss_percent": 100
+    },
+    "ground_truth": {
+      "root_cause": "AWS security group rule accidentally removed during infrastructure update, blocking ingress traffic on port 5432 from order-service subnet to inventory-db subnet",
+      "severity": "P1",
+      "remediation_steps": [
+        "Restore security group rule allowing TCP port 5432 from 10.0.2.0/24 to 10.0.5.0/24",
+        "Verify network connectivity using telnet from order-service instances",
+        "Confirm order placement success rate returns to 100%",
+        "Implement Terraform state lock to prevent concurrent infrastructure changes"
+      ]
+    },
+    "log_id": "log_train_043",
+    "kb_refs": [
+      "kb_004",
+      "kb_008"
+    ]
+  },
+  {
+    "id": "train_044",
+    "title": "Notification Service Disk Space Exhaustion",
+    "description": "Notification service instances began crashing with write errors at 22:41 UTC. Log files indicated insufficient disk space errors. Service could not write message queue acknowledgments or process new notifications.",
+    "service": "notification-service",
+    "environment": "production",
+    "category": "storage",
+    "is_edge_case": false,
+    "edge_case_family": null,
+    "metrics": {
+      "disk_usage_percent": 100,
+      "available_disk_mb": 0,
+      "crash_count": 14,
+      "messages_processed_per_min": 0
+    },
+    "ground_truth": {
+      "root_cause": "Application logs rotated but not purged, accumulating 47GB of compressed log files over 90 days and filling 50GB root volume completely",
+      "severity": "P1",
+      "remediation_steps": [
+        "Delete log files older than 7 days from /var/log/notification-service/",
+        "Restart notification-service instances to restore functionality",
+        "Configure logrotate to purge files older than 14 days automatically",
+        "Increase root volume size from 50GB to 100GB and enable disk usage alerts at 80%"
+      ]
+    },
+    "log_id": "log_train_044",
+    "kb_refs": [
+      "kb_005",
+      "kb_013"
+    ]
+  },
+  {
+    "id": "train_045",
+    "title": "User Profile Service Memory Leak and OOM Crashes",
+    "description": "User profile service instances experiencing periodic crashes every 4-6 hours with Out of Memory errors. Memory usage steadily increased from 2GB to 8GB before crash. Service automatically restarted but caused brief interruptions for users.",
+    "service": "user-profile-service",
+    "environment": "production",
+    "category": "service",
+    "is_edge_case": false,
+    "edge_case_family": null,
+    "metrics": {
+      "memory_usage_mb": 8192,
+      "memory_limit_mb": 8192,
+      "oom_kill_count": 6,
+      "uptime_hours": 4.3
+    },
+    "ground_truth": {
+      "root_cause": "Memory leak in profile image caching layer where cache entries were never evicted, caused by LRU eviction policy disabled in version 2.4.1 deployment",
+      "severity": "P2",
+      "remediation_steps": [
+        "Rollback user-profile-service from version 2.4.1 to 2.4.0",
+        "Verify memory usage stabilizes below 3GB after 24 hours",
+        "Fix cache eviction policy configuration in version 2.4.2",
+        "Deploy version 2.4.2 with proper LRU cache limits of 10000 entries"
+      ]
+    },
+    "log_id": "log_train_045",
+    "kb_refs": [
+      "kb_006",
+      "kb_008"
+    ]
+  },
+  {
+    "id": "train_046",
+    "title": "Search Service Incorrect Environment Variable Configuration",
+    "description": "Search service deployed with wrong Elasticsearch cluster endpoint causing all search queries to fail with connection refused errors. Service health checks passed but functional searches returned no results. Issue began immediately after deployment at 16:00 UTC.",
+    "service": "search-service",
+    "environment": "production",
+    "category": "configuration",
+    "is_edge_case": false,
+    "edge_case_family": null,
+    "metrics": {
+      "error_rate": 100,
+      "search_queries_per_min": 2340,
+      "elasticsearch_connection_errors": 2340,
+      "successful_searches": 0
+    },
+    "ground_truth": {
+      "root_cause": "Environment variable ELASTICSEARCH_URL set to staging cluster endpoint (es-staging.internal:9200) instead of production endpoint (es-prod.internal:9200) in deployment manifest",
+      "severity": "P1",
+      "remediation_steps": [
+        "Update deployment environment variable ELASTICSEARCH_URL to es-prod.internal:9200",
+        "Redeploy search-service with corrected configuration",
+        "Verify search success rate returns to baseline of 99.8%",
+        "Add environment-specific configuration validation to CI/CD pipeline"
+      ]
+    },
+    "log_id": "log_train_046",
+    "kb_refs": [
+      "kb_014",
+      "kb_021"
+    ]
+  },
+  {
+    "id": "train_047",
+    "title": "Inventory Database Replication Lag Spike",
+    "description": "Inventory database read replicas experienced replication lag increasing from 2 seconds to 340 seconds at 11:20 UTC. Product availability checks returned stale data causing overselling of items. Write throughput on primary database was normal.",
+    "service": "inventory-db",
+    "environment": "production",
+    "category": "database",
+    "is_edge_case": false,
+    "edge_case_family": null,
+    "metrics": {
+      "replication_lag_seconds": 340,
+      "replica_io_thread_running": true,
+      "replica_sql_thread_running": true,
+      "primary_writes_per_second": 1200
+    },
+    "ground_truth": {
+      "root_cause": "Replica database running full table analytics query without proper index consuming 95% CPU and causing SQL thread to fall behind in applying binlog events",
+      "severity": "P2",
+      "remediation_steps": [
+        "Kill long-running analytics query on replica instances",
+        "Wait for replication lag to decrease below 5 seconds",
+        "Move analytics queries to dedicated analytics replica with lower priority",
+        "Implement query timeout limits of 60 seconds on read replicas"
+      ]
+    },
+    "log_id": "log_train_047",
+    "kb_refs": [
+      "kb_001",
+      "kb_002"
+    ]
+  },
+  {
+    "id": "train_048",
+    "title": "API Gateway High Latency from DNS Resolution Delays",
+    "description": "API gateway experiencing intermittent high latency spikes up to 5000ms affecting 15% of requests. Latency distribution showed bimodal pattern with fast requests at 45ms and slow requests at 5000ms. Backend services reported normal performance.",
+    "service": "api-gateway",
+    "environment": "production",
+    "category": "network",
+    "is_edge_case": false,
+    "edge_case_family": null,
+    "metrics": {
+      "p99_latency_ms": 5000,
+      "p50_latency_ms": 45,
+      "dns_resolution_time_ms": 4800,
+      "affected_request_percent": 15
+    },
+    "ground_truth": {
+      "root_cause": "DNS resolver cache disabled in nginx configuration causing every upstream request to perform synchronous DNS lookup to overloaded DNS server with 5 second timeout",
+      "severity": "P2",
+      "remediation_steps": [
+        "Enable DNS caching in nginx with resolver_timeout 5s and valid=60s",
+        "Configure resolver to use multiple DNS servers for redundancy",
+        "Reload nginx configuration without downtime",
+        "Verify p99 latency drops below 100ms and DNS query rate decreases by 95%"
+      ]
+    },
+    "log_id": "log_train_048",
+    "kb_refs": [
+      "kb_004",
+      "kb_008"
+    ]
+  },
+  {
+    "id": "train_049",
+    "title": "Analytics Service S3 Write Failures",
+    "description": "Analytics service unable to write event data to S3 bucket resulting in data loss for 2 hours. Service logs showed AccessDenied errors for all PutObject operations. Event processing queue began backing up with 450k unprocessed events.",
+    "service": "analytics-service",
+    "environment": "production",
+    "category": "storage",
+    "is_edge_case": false,
+    "edge_case_family": null,
+    "metrics": {
+      "s3_write_errors": 12450,
+      "s3_write_success_rate": 0,
+      "queue_depth": 450000,
+      "events_processed_per_min": 0
+    },
+    "ground_truth": {
+      "root_cause": "IAM role policy for analytics-service accidentally modified removing s3:PutObject permission on analytics-events-prod bucket during security audit",
+      "severity": "P1",
+      "remediation_steps": [
+        "Restore s3:PutObject permission to analytics-service IAM role policy",
+        "Verify service can successfully write test objects to S3 bucket",
+        "Resume event processing to drain queue backlog",
+        "Implement IAM policy change approval workflow to prevent unauthorized modifications"
+      ]
+    },
+    "log_id": "log_train_049",
+    "kb_refs": [
+      "kb_005",
+      "kb_013"
+    ]
+  },
+  {
+    "id": "train_050",
+    "title": "Recommendation Engine Crashes from Invalid Configuration",
+    "description": "Recommendation engine pods crash-looping with configuration parsing errors after deployment at 13:45 UTC. Service could not start and continuously restarted every 30 seconds. Zero traffic was being processed and recommendations were unavailable.",
+    "service": "recommendation-engine",
+    "environment": "production",
+    "category": "configuration",
+    "is_edge_case": false,
+    "edge_case_family": null,
+    "metrics": {
+      "pod_restart_count": 47,
+      "crash_loop_backoff": true,
+      "successful_starts": 0,
+      "traffic_served_percent": 0
+    },
+    "ground_truth": {
+      "root_cause": "ConfigMap updated with invalid YAML syntax - missing colon after 'model_weights' key causing application to fail during configuration parsing at startup",
+      "severity": "P1",
+      "remediation_steps": [
+        "Rollback ConfigMap to previous valid version from revision history",
+        "Restart recommendation-engine pods to load corrected configuration",
+        "Verify all pods reach running state and pass readiness checks",
+        "Add YAML syntax validation to configuration deployment pipeline"
+      ]
+    },
+    "log_id": "log_train_050",
+    "kb_refs": [
+      "kb_014",
+      "kb_021"
+    ]
+  }
+]

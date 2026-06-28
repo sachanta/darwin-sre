@@ -28,7 +28,7 @@ from darwin.arize_client import setup_ax_profile, upload_golden_dataset
 from config import DARWIN_TRIGGER_THRESHOLD
 
 DATA_DIR = Path("data")
-WASHOUT_SIZE = 3   # normal incidents between families to reset rolling window
+WASHOUT_SIZE = 5   # must exceed window size so cooldown clears before next CCF family
 
 
 def load_json(path: Path) -> list[dict]:
