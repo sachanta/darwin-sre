@@ -13,6 +13,7 @@ knowledge_articles = _db["knowledge_articles"]
 alerts_col = _db["alerts"]
 runs_col = _db["runs"]
 skills_col = _db["skills"]
+problem_tickets_col = _db["problem_tickets"]
 
 
 # ---------------------------------------------------------------------------
@@ -251,6 +252,41 @@ def get_run(run_id: str) -> dict | None:
 
 def list_runs() -> list[dict]:
     return list(runs_col.find({}, {"_id": 0}).sort("started_at", -1))
+
+
+# ---------------------------------------------------------------------------
+# Problem Tickets (repeat-incident escalation)
+# ---------------------------------------------------------------------------
+
+def create_problem_ticket(skill: dict, incident_id: str, use_count: int) -> dict:
+    """Create a problem ticket escalating a recurring skill to engineering."""
+    import uuid
+    ticket = {
+        "id": f"ticket_{uuid.uuid4().hex[:8]}",
+        "created_at": datetime.now(timezone.utc),
+        "status": "open",
+        "skill_id": skill["id"],
+        "skill_name": skill["name"],
+        "skill_tags": skill.get("tags", []),
+        "use_count": use_count,
+        "trigger_incident_id": incident_id,
+        "summary": (
+            f"Skill '{skill['name']}' has been applied {use_count} times. "
+            "Recurring pattern indicates an unresolved root cause at the infrastructure or product level."
+        ),
+        "recommended_action": (
+            "Escalate to engineering: the underlying failure class should be fixed in the product, "
+            "not worked around by SRE runbooks."
+        ),
+    }
+    problem_tickets_col.insert_one(ticket)
+    skills_col.update_one({"id": skill["id"]}, {"$set": {"ticket_created": True}})
+    return ticket
+
+
+def get_all_problem_tickets() -> list[dict]:
+    docs = list(problem_tickets_col.find({}, {"_id": 0}).sort("created_at", 1))
+    return docs
 
 
 # ---------------------------------------------------------------------------

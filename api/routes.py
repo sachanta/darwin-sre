@@ -127,6 +127,21 @@ def get_timeline(run_id: str):
             "prompt_diff": g.get("prompt_diff", ""),
         })
 
+    # Problem ticket events — use resolution timestamps as proxies
+    from darwin.storage import get_all_problem_tickets
+    for t in get_all_problem_tickets():
+        events.append({
+            "type": "problem_ticket_created",
+            "timestamp": _ts(t.get("created_at")),
+            "ticket_id": t.get("id"),
+            "skill_id": t.get("skill_id"),
+            "skill_name": t.get("skill_name"),
+            "skill_tags": t.get("skill_tags", []),
+            "use_count": t.get("use_count"),
+            "summary": t.get("summary"),
+            "recommended_action": t.get("recommended_action"),
+        })
+
     events.sort(key=lambda e: e["timestamp"])
     return {"run_id": run_id, "events": events, "run": _serialize(run)}
 
@@ -207,6 +222,17 @@ def list_generations(run_id: str | None = None):
     from darwin.storage import get_all_generations
     gens = [_serialize(g) for g in get_all_generations(run_id=run_id)]
     return {"generations": gens}
+
+
+# ---------------------------------------------------------------------------
+# Problem Tickets
+# ---------------------------------------------------------------------------
+
+@router.get("/problem-tickets")
+def list_problem_tickets():
+    from darwin.storage import get_all_problem_tickets
+    tickets = [_serialize(t) for t in get_all_problem_tickets()]
+    return {"tickets": tickets, "count": len(tickets)}
 
 
 # ---------------------------------------------------------------------------

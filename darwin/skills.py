@@ -19,7 +19,8 @@ _client = MongoClient(MONGODB_URI)
 _db = _client[MONGODB_DB]
 skills_col = _db["skills"]
 
-RETIRE_AFTER_GENERATIONS = 4  # archive a skill not triggered in N consecutive generations
+RETIRE_AFTER_GENERATIONS = 4   # archive a skill not triggered in N consecutive generations
+ESCALATION_THRESHOLD    = 3   # create a problem ticket when a skill fires this many times
 
 
 # ---------------------------------------------------------------------------
@@ -47,11 +48,14 @@ def get_all_skills() -> list[dict]:
     return list(skills_col.find({}, {"_id": 0}).sort("created_by_generation", 1))
 
 
-def increment_skill_use(skill_id: str) -> None:
-    skills_col.update_one(
+def increment_skill_use(skill_id: str) -> int:
+    """Increment use_count and return the new count."""
+    result = skills_col.find_one_and_update(
         {"id": skill_id},
         {"$inc": {"use_count": 1}, "$set": {"last_used": datetime.now(timezone.utc)}},
+        return_document=True,
     )
+    return result["use_count"] if result else 1
 
 
 def retire_stale_skills(current_generation: int) -> list[str]:

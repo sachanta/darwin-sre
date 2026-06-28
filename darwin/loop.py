@@ -2,10 +2,11 @@ from collections import deque
 from agents.sre_agent import resolve_incident, DEFAULT_SYSTEM_PROMPT
 from agents.judge import score_resolution
 from darwin.mutator import generate_skill, generate_kb_article
-from darwin.skills import retrieve_skills, save_skill, increment_skill_use, retire_stale_skills
+from darwin.skills import retrieve_skills, save_skill, increment_skill_use, retire_stale_skills, ESCALATION_THRESHOLD
 from darwin.storage import (
     save_resolution, save_generation,
     save_alert, update_alert_status, save_kb_article,
+    create_problem_ticket, get_all_problem_tickets,
 )
 from darwin.arize_client import create_experiment
 from darwin.vijil_dome import guard_incident_input, guard_resolution_output
@@ -74,7 +75,23 @@ class DarwinLoop:
 
                 active_skills = retrieve_skills(incident)
                 for skill in active_skills:
-                    increment_skill_use(skill["id"])
+                    new_count = increment_skill_use(skill["id"])
+                    if new_count >= ESCALATION_THRESHOLD and not skill.get("ticket_created"):
+                        try:
+                            ticket = create_problem_ticket(skill, incident["id"], new_count)
+                            skill["ticket_created"] = True  # prevent duplicate emit this loop
+                            self._emit("problem_ticket_created", {
+                                "ticket_id": ticket["id"],
+                                "skill_id": skill["id"],
+                                "skill_name": skill["name"],
+                                "skill_tags": skill.get("tags", []),
+                                "use_count": new_count,
+                                "trigger_incident_id": incident["id"],
+                                "summary": ticket["summary"],
+                                "recommended_action": ticket["recommended_action"],
+                            })
+                        except Exception:
+                            pass
 
                 self._emit("incident_start", {
                     "incident_id": incident["id"],

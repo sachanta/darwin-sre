@@ -23,6 +23,7 @@ let evoAnnots     = [];   // {x: idx, label} for recovery markers
 let incidentCount = 0;
 let alertCount    = 0;
 let currentGen    = 0;
+let ticketCount   = 0;
 
 // ── Boot ───────────────────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', async () => {
@@ -108,7 +109,7 @@ function step() {
 function onReset() {
   if (playTimer) { clearInterval(playTimer); playTimer = null; }
   playIndex = 0;
-  incidentCount = 0; alertCount = 0; currentGen = 0;
+  incidentCount = 0; alertCount = 0; currentGen = 0; ticketCount = 0;
   chartScores = []; chartLabels = []; chartColors = []; chartGen = [];
   alertAnnots = []; evoAnnots = [];
   resetChart();
@@ -117,6 +118,10 @@ function onReset() {
   document.getElementById('evoCount').textContent = '0 / 8';
   document.getElementById('tickerStats').textContent = '0 incidents · 0 alerts';
   document.getElementById('chartStats').innerHTML = '<span>Avg: —</span><span>Gen: 0</span><span>Incidents: 0</span>';
+  document.getElementById('ticketList').innerHTML = '<div class="ticket-empty">No recurring patterns yet…</div>';
+  const tc = document.getElementById('ticketCount');
+  tc.textContent = '0 open';
+  tc.classList.remove('has-tickets');
   document.getElementById('playBtn').textContent = '▶ Play';
   setStatus(`${timeline.length} events · press ▶ Play`, 'idle');
 }
@@ -124,10 +129,11 @@ function onReset() {
 // ── Event processing ───────────────────────────────────────────────────────
 function processEvent(ev) {
   switch (ev.type) {
-    case 'incident_resolved': onIncidentResolved(ev); break;
-    case 'alert_raised':      onAlertRaised(ev);      break;
-    case 'alert_resolved':    onAlertResolved(ev);    break;
-    case 'darwin_complete':   onDarwinComplete(ev);   break;
+    case 'incident_resolved':       onIncidentResolved(ev);      break;
+    case 'alert_raised':            onAlertRaised(ev);           break;
+    case 'alert_resolved':          onAlertResolved(ev);         break;
+    case 'darwin_complete':         onDarwinComplete(ev);        break;
+    case 'problem_ticket_created':  onProblemTicketCreated(ev);  break;
   }
 }
 
@@ -214,6 +220,40 @@ function onDarwinComplete(ev) {
 
   const row = el('div', 'tick-evo');
   row.textContent = `🧬 Darwin gen ${ev.generation}: ${(ev.score_before ?? 0).toFixed(2)} → ${(ev.score_after ?? 0).toFixed(2)} ${improved ? '↑ FIXED' : '→ partial'}`;
+  appendTicker(row);
+}
+
+function onProblemTicketCreated(ev) {
+  ticketCount++;
+
+  // Update counter badge
+  const tc = document.getElementById('ticketCount');
+  tc.textContent = `${ticketCount} open`;
+  tc.classList.add('has-tickets');
+
+  // Remove empty placeholder
+  const list = document.getElementById('ticketList');
+  const empty = list.querySelector('.ticket-empty');
+  if (empty) empty.remove();
+
+  // Ticket card
+  const card = el('div', 'ticket-card');
+  const tags = (ev.skill_tags || []).slice(0, 4).join(', ');
+  card.innerHTML = `
+    <div class="ticket-header">
+      <span class="ticket-skill">🎫 ${esc(ev.skill_name)}</span>
+      <span class="ticket-badge">ESCALATE</span>
+    </div>
+    <div class="ticket-uses">Used ${ev.use_count}× — recurring pattern detected</div>
+    ${tags ? `<div class="ticket-action" style="color:var(--purple);margin-bottom:3px">Tags: ${esc(tags)}</div>` : ''}
+    <div class="ticket-action">${esc(ev.recommended_action)}</div>
+  `;
+  list.appendChild(card);
+
+  // Ticker row
+  const row = el('div', 'tick-alert');
+  row.style.borderColor = 'var(--red)';
+  row.textContent = `🎫 PROBLEM TICKET — skill '${ev.skill_name?.slice(0, 40)}' used ${ev.use_count}× · escalate to engineering`;
   appendTicker(row);
 }
 
