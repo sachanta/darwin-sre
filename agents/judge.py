@@ -8,7 +8,37 @@ from observability import get_tracer, span_ok
 
 _client = genai.Client(api_key=GOOGLE_API_KEY)
 
-JUDGE_PROMPT = """You are a strict SRE evaluator. Score this incident resolution against the ground truth.
+_JUDGE_COMMON_FOOTER = """Respond in valid JSON only:
+{{
+  "root_cause_accuracy": <0.0-1.0>,
+  "remediation_quality": <0.0-1.0>,
+  "severity_accuracy": <0.0-1.0>,
+  "composite": <weighted average>,
+  "reasoning": "<10 words max>"
+}}"""
+
+# Lenient rubric for standard production incidents — rewards correct diagnosis and
+# reasonable standard SRE remediation without requiring internal tool names.
+JUDGE_PROMPT_NORMAL = """You are an SRE evaluator grading a resolution for a standard production incident.
+
+INCIDENT:
+{incident}
+
+AGENT RESOLUTION:
+{resolution}
+
+GROUND TRUTH:
+{ground_truth}
+
+Score each criterion from 0.0 to 1.0:
+- root_cause_accuracy (0.4 weight): Does the agent correctly identify the failure class and affected component? Award 0.85-0.95 for correctly naming the service and symptom type (connection pool, OOM, disk full, network partition, high CPU, replica lag, etc.) even if minor details differ. Award 1.0 for a precise match.
+- remediation_quality (0.4 weight): Does the resolution provide reasonable standard SRE remediation steps? Standard kubectl commands, database operations, scaling actions, and common operational fixes earn 0.85-0.95. Exact specific command syntax is NOT required — correct approach and direction is sufficient. Only score below 0.6 if the remediation is wrong or would worsen the situation.
+- severity_accuracy (0.2 weight): Is the P1/P2/P3 severity correct? Award 1.0 exact, 0.5 off by one level, 0.0 off by two levels.
+
+""" + _JUDGE_COMMON_FOOTER
+
+# Strict rubric for corner-case incidents — penalises missing internal commands/tools.
+JUDGE_PROMPT_CCF = """You are a strict SRE evaluator scoring a resolution for a complex corner-case incident.
 
 INCIDENT:
 {incident}
@@ -21,30 +51,25 @@ GROUND TRUTH:
 
 Score each criterion from 0.0 to 1.0:
 - root_cause_accuracy (0.4 weight): Does the identified root cause match the ground truth's SPECIFIC root cause? Generic or partial answers score 0.2-0.4.
-- remediation_quality (0.4 weight): STRICT — does the resolution include the EXACT specific steps from the ground truth? If the ground truth contains specific internal commands, config keys, tool names, kubectl patches, or runbook steps and the resolution omits them or uses only generic alternatives, score 0.1-0.3. Only score 0.8+ if the specific steps are explicitly addressed.
+- remediation_quality (0.4 weight): STRICT — does the resolution include the EXACT specific steps from the ground truth? If the ground truth contains specific internal commands, config keys, tool names, kubectl patches, or runbook steps and the resolution omits them or uses only generic alternatives, score 0.1-0.3. Only score 0.8+ if the specific steps are explicitly present.
 - severity_accuracy (0.2 weight): Is the P1/P2/P3 severity correct?
 
-Respond in valid JSON only:
-{{
-  "root_cause_accuracy": <0.0-1.0>,
-  "remediation_quality": <0.0-1.0>,
-  "severity_accuracy": <0.0-1.0>,
-  "composite": <weighted average>,
-  "reasoning": "<10 words max>"
-}}"""
+""" + _JUDGE_COMMON_FOOTER
 
 
 def score_resolution(incident: dict, resolution: dict) -> dict:
     tracer = get_tracer()
     ground_truth = incident.get("ground_truth", {})
+    is_edge_case = incident.get("is_edge_case", False)
+    prompt_template = JUDGE_PROMPT_CCF if is_edge_case else JUDGE_PROMPT_NORMAL
 
     with tracer.start_as_current_span("darwin.judge", kind=SpanKind.CLIENT) as span:
         span.set_attribute("openinference.span.kind", "LLM")
         span.set_attribute("incident.id", incident["id"])
-        span.set_attribute("incident.is_edge_case", incident.get("is_edge_case", False))
+        span.set_attribute("incident.is_edge_case", is_edge_case)
         span.set_attribute("llm.model", JUDGE_MODEL)
 
-        prompt = JUDGE_PROMPT.format(
+        prompt = prompt_template.format(
             incident=json.dumps({
                 "title": incident["title"],
                 "service": incident["service"],

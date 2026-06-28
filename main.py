@@ -25,10 +25,14 @@ from observability import setup_tracing
 from darwin.loop import DarwinLoop
 from darwin.storage import seed_incidents, seed_logs, create_run, finish_run
 from darwin.arize_client import setup_ax_profile, upload_golden_dataset
-from config import DARWIN_TRIGGER_THRESHOLD
+from config import DARWIN_TRIGGER_THRESHOLD, DARWIN_WINDOW_SIZE
 
 DATA_DIR = Path("data")
-WASHOUT_SIZE = 5   # must exceed window size so cooldown clears before next CCF family
+WASHOUT_SIZE = 10  # wide plateau between CCF families; window=5 clears by washout-4
+NORMAL_LEAD = 10   # normal incidents before first CCF family (establishes baseline plateau)
+NORMAL_TAIL = 10   # normal incidents after last CCF family (final validation plateau)
+# Only 4 CCF families in the demo run — clean sawtooth, wider plateau gaps, easy to narrate
+CCF_FAMILIES = ["CCF-1", "CCF-2", "CCF-3", "CCF-4"]
 
 
 def load_json(path: Path) -> list[dict]:
@@ -40,36 +44,33 @@ def build_episode(
     corner_cases: list[dict],
     washout_pool: list[dict],
 ) -> list[dict]:
-    """Build the ordered episode list: waves of corner cases separated by washout incidents.
+    """Build the ordered episode list: wide normal plateaus separated by CCF dips.
 
-    Structure:
-      normal_prod[:15]
-      for each family: family_incidents + washout_pool[i*3:(i+1)*3]
-      normal_prod[15:]
+    Structure (72 incidents):
+      normal_prod[:NORMAL_LEAD]                      → stable plateau
+      for each family in CCF_FAMILIES:
+        family_incidents (3) + washout_pool[…] (10)  → sharp dip + recovery
+      normal_prod[NORMAL_LEAD:NORMAL_LEAD+NORMAL_TAIL] → final plateau
     """
-    # Group corner cases by family, preserving order
     families: dict[str, list[dict]] = {}
     for inc in corner_cases:
         fam = inc.get("edge_case_family", "unknown")
         families.setdefault(fam, []).append(inc)
 
-    family_order = ["CCF-1", "CCF-2", "CCF-3", "CCF-4", "CCF-5", "CCF-6", "CCF-7", "CCF-8"]
-
     episode = []
-    episode.extend(normal_prod[:15])
+    episode.extend(normal_prod[:NORMAL_LEAD])
 
     washout_idx = 0
-    for fam_id in family_order:
+    for fam_id in CCF_FAMILIES:
         incidents = families.get(fam_id, [])
         if not incidents:
             continue
         episode.extend(incidents)
-        # Washout: WASHOUT_SIZE normal incidents to push window back above threshold
         washout = washout_pool[washout_idx: washout_idx + WASHOUT_SIZE]
         episode.extend(washout)
         washout_idx += WASHOUT_SIZE
 
-    episode.extend(normal_prod[15:])
+    episode.extend(normal_prod[NORMAL_LEAD: NORMAL_LEAD + NORMAL_TAIL])
     return episode
 
 
@@ -167,10 +168,10 @@ def main():
     create_run(run_id)
     print(f"  ✓ run_id: {run_id}\n")
 
-    # ── Baseline: training set ─────────────────────────────────────────────
+    # ── Baseline: training set (run_id=None so training scores don't appear in UI timeline) ──
     n_train = len(training)
     print(f"── BASELINE ({n_train} training incidents) ───────────────────────")
-    baseline_loop = DarwinLoop(on_event=on_event, run_id=run_id)
+    baseline_loop = DarwinLoop(on_event=on_event, run_id=None)
     baseline_results = baseline_loop.run(training, register_vijil=True)
     baseline_avg = (sum(r["scores"]["composite"] for r in baseline_results)
                     / len(baseline_results))
@@ -181,7 +182,7 @@ def main():
     families_in_episode = [i.get("edge_case_family") for i in episode if i.get("is_edge_case")]
     print(f"── PRODUCTION STREAM ({len(episode)} incidents) ────────────────────")
     print(f"   Family waves: {sorted(set(families_in_episode))}")
-    print(f"   Window size: {baseline_loop.window.maxlen}  Threshold: {DARWIN_TRIGGER_THRESHOLD}\n")
+    print(f"   Window size: {DARWIN_WINDOW_SIZE}  Threshold: {DARWIN_TRIGGER_THRESHOLD}\n")
 
     prod_loop = DarwinLoop(on_event=on_event, run_id=run_id)
     prod_results = prod_loop.run(episode, register_vijil=False)
