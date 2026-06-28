@@ -29,8 +29,8 @@ from config import DARWIN_TRIGGER_THRESHOLD, DARWIN_WINDOW_SIZE
 
 DATA_DIR = Path("data")
 WASHOUT_SIZE = 10  # wide plateau between CCF families; window=5 clears by washout-4
-NORMAL_LEAD = 10   # normal incidents before first CCF family (establishes baseline plateau)
-NORMAL_TAIL = 10   # normal incidents after last CCF family (final validation plateau)
+NORMAL_LEAD = 5    # 5 normal prod after training baseline fills the window before first CCF
+NORMAL_TAIL = 10   # normal prod tail after last CCF family
 # Only 4 CCF families in the demo run — clean sawtooth, wider plateau gaps, easy to narrate
 CCF_FAMILIES = ["CCF-1", "CCF-2", "CCF-3", "CCF-4"]
 
@@ -168,17 +168,22 @@ def main():
     create_run(run_id)
     print(f"  ✓ run_id: {run_id}\n")
 
-    # ── Baseline: training set (run_id=None so training scores don't appear in UI timeline) ──
+    # ── Baseline: training set ─────────────────────────────────────────────
+    # training is already capped by --n; the remainder (training[n:]) is used as washout
+    # so the baseline incidents don't appear twice in the UI.
     n_train = len(training)
     print(f"── BASELINE ({n_train} training incidents) ───────────────────────")
-    baseline_loop = DarwinLoop(on_event=on_event, run_id=None)
+    baseline_loop = DarwinLoop(on_event=on_event, run_id=run_id)
+    all_training = load_json(DATA_DIR / "incidents_training.json")  # full set for washout
     baseline_results = baseline_loop.run(training, register_vijil=True)
     baseline_avg = (sum(r["scores"]["composite"] for r in baseline_results)
                     / len(baseline_results))
     print(f"\nBaseline avg: {baseline_avg:.3f}\n")
 
     # ── Production: wave-based episode ────────────────────────────────────
-    episode = build_episode(normal_prod, corner_cases, washout_pool=training)
+    # Washout pool starts after the baseline incidents to avoid duplicate IDs in timeline
+    washout_pool = all_training[n_train:]
+    episode = build_episode(normal_prod, corner_cases, washout_pool=washout_pool)
     families_in_episode = [i.get("edge_case_family") for i in episode if i.get("is_edge_case")]
     print(f"── PRODUCTION STREAM ({len(episode)} incidents) ────────────────────")
     print(f"   Family waves: {sorted(set(families_in_episode))}")
