@@ -1,0 +1,60 @@
+name: darwin-sre
+region: nyc
+
+services:
+- name: web
+  dockerfile_path: Dockerfile
+  source_dir: /
+  github:
+    repo: sachanta/darwin-sre
+    branch: main
+    deploy_on_push: true
+  http_port: 8080
+  instance_count: 1
+  instance_size_slug: basic-s
+  health_check:
+    http_path: /health
+    initial_delay_seconds: 30
+    period_seconds: 10
+    timeout_seconds: 5
+    failure_threshold: 3
+  envs:
+  - key: DIGITAL_OCEAN_MODEL_ACCESS_KEY
+    scope: RUN_AND_BUILD_TIME
+    type: SECRET
+  - key: GOOGLE_API_KEY
+    scope: RUN_AND_BUILD_TIME
+    type: SECRET
+  - key: ANTHROPIC_API_KEY
+    scope: RUN_AND_BUILD_TIME
+    type: SECRET
+  - key: ARIZE_API_KEY
+    scope: RUN_AND_BUILD_TIME
+    type: SECRET
+  - key: ARIZE_SPACE_ID
+    scope: RUN_AND_BUILD_TIME
+    type: SECRET
+  - key: ARIZE_PROJECT_NAME
+    scope: RUN_AND_BUILD_TIME
+    value: darwin-sre
+  - key: VIJIL_BEARER_TOKEN
+    scope: RUN_AND_BUILD_TIME
+    type: SECRET
+  - key: VIJIL_URL
+    scope: RUN_AND_BUILD_TIME
+    value: https://console.vijil.ai
+  - key: MONGODB_URI
+    scope: RUN_AND_BUILD_TIME
+    type: SECRET
+  - key: MONGODB_USERNAME
+    scope: RUN_AND_BUILD_TIME
+    type: SECRET
+  - key: MONGODB_PASSWORD
+    scope: RUN_AND_BUILD_TIME
+    type: SECRET
+  - key: VOYAGE_API_KEY
+    scope: RUN_AND_BUILD_TIME
+    type: SECRET
+  - key: PYTHONPATH
+    scope: RUN_AND_BUILD_TIME
+    value: /app
